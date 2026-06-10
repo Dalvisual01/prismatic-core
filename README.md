@@ -158,10 +158,15 @@ import { createDefaultUiPositions, DEFAULT_UI_SIZES } from "./layout"
 
 ## Releases
 
-1. Update `CHANGELOG.md`
-2. `npm run build` (commits `dist/` for git consumers)
-3. `git tag v0.x.x && git push origin v0.x.x`
-4. Bump tag in consuming apps: `npm install`
+See **[RELEASING.md](./RELEASING.md)** for the full step-by-step guide (version bump, build, tag, push, update consumers).
+
+Quick summary:
+
+1. Bump `package.json` version
+2. Update `CHANGELOG.md`
+3. `npm run build` and commit `dist/`
+4. `git push origin main && git tag v0.x.x && git push origin v0.x.x`
+5. Bump `#v0.x.x` in consuming apps and `npm install`
 
 ## Example app
 
