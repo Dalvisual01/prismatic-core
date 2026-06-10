@@ -9,7 +9,7 @@ Creative coding framework for generative graphics tools — workspace UI, dragga
 ```json
 {
   "dependencies": {
-    "@prismatic/core": "github:YOUR_ORG/prismatic-core#v0.1.0"
+    "@prismatic/core": "github:Dalvisual01/prismatic-core#v0.1.0"
   }
 }
 ```
