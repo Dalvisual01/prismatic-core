@@ -1,0 +1,16 @@
+/* Prismatic workspace utility classes — import alongside your Tailwind setup.
+   In Tailwind v4, also add to your CSS:
+   @source "../node_modules/@prismatic/core/dist/index.js";
+   (or the path to this package's source when using file: dependencies) */
+
+.workspace-controls {
+  /* marker class for drag-exempt interactive controls */
+}
+
+.workspace-hover-zone {
+  /* receives pointer events when parent has pointer-events-none */
+}
+
+.workspace-panel {
+  /* sized panel container with optional transitions */
+}
