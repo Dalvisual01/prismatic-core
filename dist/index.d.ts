@@ -281,22 +281,37 @@ type SlidersPanelProps = {
 declare function SlidersPanel({ children, panelId }: SlidersPanelProps): react.JSX.Element;
 
 declare const BUTTON_TEXT_LG = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] lowercase";
+/** Playground / generic CTA — outline at rest, filled on hover. */
 declare const BUTTON_ELLIPSE_WIDTH = 274;
 declare const BUTTON_ELLIPSE_HEIGHT = 120;
+/** Secondary actions — stroke-only ellipse, difference-blend label. */
+declare const BUTTON_FRAME_WIDTH = 194;
+declare const BUTTON_FRAME_HEIGHT = 120;
+/** Primary export/save — always-filled ellipse, difference-blend label. */
+declare const BUTTON_SAVE_WIDTH = 216;
+declare const BUTTON_SAVE_HEIGHT = 113;
+type ButtonVariant = "cta" | "frame" | "save";
 type ButtonEllipseVisualProps = {
+    variant?: ButtonVariant;
     active: boolean;
     children: ReactNode;
     width?: number;
     height?: number;
     className?: string;
+    /** Background image for `save` variant (CSS `url(...)`). */
+    saveButtonBg?: string;
 };
-declare function ButtonEllipseVisual({ active, children, width, height, className, }: ButtonEllipseVisualProps): react.JSX.Element;
+declare function ButtonEllipseVisual({ variant, active, children, width, height, className, saveButtonBg, }: ButtonEllipseVisualProps): react.JSX.Element;
 type ButtonProps = {
     children: ReactNode;
+    /** `cta` — theme outline/fill on hover. `frame` — stroke-only secondary. `save` — filled export CTA. */
+    variant?: ButtonVariant;
+    /** CSS background image for `save` variant, e.g. `url("/assets/save-button-bg.svg")`. */
+    saveButtonBg?: string;
     width?: number;
     height?: number;
 } & ButtonHTMLAttributes<HTMLButtonElement>;
-declare function Button({ children, width, height, className, type, disabled, onMouseEnter, onMouseLeave, onFocus, onBlur, ...rest }: ButtonProps): react.JSX.Element;
+declare function Button({ children, variant, saveButtonBg, width, height, className, type, disabled, onMouseEnter, onMouseLeave, onFocus, onBlur, ...rest }: ButtonProps): react.JSX.Element;
 
 type SliderProps = {
     label: string;
@@ -456,4 +471,4 @@ declare function findAutoPlacedPosition(panelId: PanelId, current: PixelPosition
 /** @deprecated Use findAutoPlacedPosition */
 declare const findShortcutsPosition: typeof findAutoPlacedPosition;
 
-export { BUTTON_ELLIPSE_HEIGHT, BUTTON_ELLIPSE_WIDTH, BUTTON_TEXT_LG, Button, ButtonEllipseVisual, type ButtonEllipseVisualProps, type ButtonProps, type CanvasDragDebug, CreativeCanvas, type CreativeCanvasHandle, type CreativeCanvasProps, DEFAULT_IMAGE_MODULES, DEFAULT_PRISMATIC_CONFIG, DEFAULT_PRISMATIC_PALETTE, DEFAULT_PRISMATIC_PALETTE_BLEND_MODES, DEFAULT_PRISMATIC_THEME, DEFAULT_PRISMATIC_THEME_BLEND_MODES, DEFAULT_SLIDER_COLUMNS, type DistributionGuide, FloatingHelp, IMAGE_DESIGN_SIZE, IMAGE_PREVIEW_MODULES, ImageComponent, type ImageComponentProps, ImagePanel, LAYOUT_GAP, MODULE, type P5WithSketch, PRISMATIC_BLEND_MODES, PRISMATIC_PALETTE_TOKEN_KEYS, PRISMATIC_PALETTE_TOKEN_LABELS, PRISMATIC_THEME_CSS_VARS, PRISMATIC_THEME_PRESETS, type PanelDragDebug$1 as PanelDragDebug, type PanelId, type PanelLayoutEntry, type PanelRect, type PanelSize, type PixelPosition, type PreviewKind, type PrismaticBlendMode, type PrismaticConfig, type PrismaticPalette, type PrismaticPaletteBlendModes, type PrismaticPaletteToken, PrismaticProvider, type PrismaticProviderProps, type PrismaticStoreInit, type PrismaticStoreState, type PrismaticTheme, type PrismaticThemeBlendModes, type PrismaticThemeInput, type PrismaticThemePreset, type PrismaticThemeToken, Radio, type RadioProps, type ResolvedPrismaticConfig, type RgbColor, SLIDER_COUNT, type SketchFactory, Slider, type SliderProps, SlidersPanel, type SnapGuides, type UiGroupId, type UiGroupRect, type UiGroupSize, type Viewport, type VisualSnapGuides, WorkspaceDebugOverlay, WorkspaceGroup, WorkspacePanel, type WorkspacePanelProps, WorkspaceShell, type WorkspaceShellProps, chunkIntoColumns, clampImageModules, clampSliderColumns, clampToWorkspaceBounds, collectCanvasPanSnapTargets, collectSnapTargets, collectWorkspaceSnapLines, columnCountFromWidth, createGridLayout, createPrismaticStore, deriveThemeFromPalette, findAutoPlacedPosition, findShortcutsPosition, formatPrismaticThemeCss, getActiveCanvasSnapLines, getActiveDistributionGuides, getActiveVisualSnapLines, getCanvasScreenRect, getCanvasSnapTargetIds, getRuntimePalette, getRuntimeTheme, getRuntimeThemeBlendModes, getSnapTargetIds, getWindowMarginRect, imageComponentMetrics, imageModulesFromSize, imagePanelSize, imagePreviewSizePx, isSnapParticipant, isSnappedToTopMargin, isUiPositionClear, layoutGap, mergePanelSizes, moduleSize, moduleSpanPx, normalizeThemeInput, parseColor, resolvePrismaticConfig, resolvePrismaticPalette, resolvePrismaticTheme, samePanelIds, sameUiGroupIds, sliderColumnWidthPx, slidersPanelSize, snapCanvasPan, snapPosition, snapScalar, snapThreshold, usePanelPosition, usePrismaticStore, useWorkspaceGroup, useWorkspaceMode, useWorkspacePanel, windowMargin };
+export { BUTTON_ELLIPSE_HEIGHT, BUTTON_ELLIPSE_WIDTH, BUTTON_FRAME_HEIGHT, BUTTON_FRAME_WIDTH, BUTTON_SAVE_HEIGHT, BUTTON_SAVE_WIDTH, BUTTON_TEXT_LG, Button, ButtonEllipseVisual, type ButtonEllipseVisualProps, type ButtonProps, type ButtonVariant, type CanvasDragDebug, CreativeCanvas, type CreativeCanvasHandle, type CreativeCanvasProps, DEFAULT_IMAGE_MODULES, DEFAULT_PRISMATIC_CONFIG, DEFAULT_PRISMATIC_PALETTE, DEFAULT_PRISMATIC_PALETTE_BLEND_MODES, DEFAULT_PRISMATIC_THEME, DEFAULT_PRISMATIC_THEME_BLEND_MODES, DEFAULT_SLIDER_COLUMNS, type DistributionGuide, FloatingHelp, IMAGE_DESIGN_SIZE, IMAGE_PREVIEW_MODULES, ImageComponent, type ImageComponentProps, ImagePanel, LAYOUT_GAP, MODULE, type P5WithSketch, PRISMATIC_BLEND_MODES, PRISMATIC_PALETTE_TOKEN_KEYS, PRISMATIC_PALETTE_TOKEN_LABELS, PRISMATIC_THEME_CSS_VARS, PRISMATIC_THEME_PRESETS, type PanelDragDebug$1 as PanelDragDebug, type PanelId, type PanelLayoutEntry, type PanelRect, type PanelSize, type PixelPosition, type PreviewKind, type PrismaticBlendMode, type PrismaticConfig, type PrismaticPalette, type PrismaticPaletteBlendModes, type PrismaticPaletteToken, PrismaticProvider, type PrismaticProviderProps, type PrismaticStoreInit, type PrismaticStoreState, type PrismaticTheme, type PrismaticThemeBlendModes, type PrismaticThemeInput, type PrismaticThemePreset, type PrismaticThemeToken, Radio, type RadioProps, type ResolvedPrismaticConfig, type RgbColor, SLIDER_COUNT, type SketchFactory, Slider, type SliderProps, SlidersPanel, type SnapGuides, type UiGroupId, type UiGroupRect, type UiGroupSize, type Viewport, type VisualSnapGuides, WorkspaceDebugOverlay, WorkspaceGroup, WorkspacePanel, type WorkspacePanelProps, WorkspaceShell, type WorkspaceShellProps, chunkIntoColumns, clampImageModules, clampSliderColumns, clampToWorkspaceBounds, collectCanvasPanSnapTargets, collectSnapTargets, collectWorkspaceSnapLines, columnCountFromWidth, createGridLayout, createPrismaticStore, deriveThemeFromPalette, findAutoPlacedPosition, findShortcutsPosition, formatPrismaticThemeCss, getActiveCanvasSnapLines, getActiveDistributionGuides, getActiveVisualSnapLines, getCanvasScreenRect, getCanvasSnapTargetIds, getRuntimePalette, getRuntimeTheme, getRuntimeThemeBlendModes, getSnapTargetIds, getWindowMarginRect, imageComponentMetrics, imageModulesFromSize, imagePanelSize, imagePreviewSizePx, isSnapParticipant, isSnappedToTopMargin, isUiPositionClear, layoutGap, mergePanelSizes, moduleSize, moduleSpanPx, normalizeThemeInput, parseColor, resolvePrismaticConfig, resolvePrismaticPalette, resolvePrismaticTheme, samePanelIds, sameUiGroupIds, sliderColumnWidthPx, slidersPanelSize, snapCanvasPan, snapPosition, snapScalar, snapThreshold, usePanelPosition, usePrismaticStore, useWorkspaceGroup, useWorkspaceMode, useWorkspacePanel, windowMargin };

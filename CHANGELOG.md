@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.1 — 2026-06-15
+
+### Added
+
+- `Button` `variant` prop: `"cta"` (default), `"frame"` (stroke-only secondary), `"save"` (filled export CTA)
+- `saveButtonBg` prop for custom save ellipse asset (`url("/assets/save-button-bg.svg")` by default on `save`)
+- Size constants: `BUTTON_FRAME_WIDTH`, `BUTTON_FRAME_HEIGHT`, `BUTTON_SAVE_WIDTH`, `BUTTON_SAVE_HEIGHT`
+
+### Changed
+
+- Playground button demo shows all three variants side by side
+
 ## 0.2.0 — 2026-06-15
 
 ### Added
