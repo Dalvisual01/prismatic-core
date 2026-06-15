@@ -180,7 +180,7 @@ export function FloatingHelp({
       >
         <span
           ref={anchorRef}
-          className={`${TEXT_CLASS} cursor-default text-[rgba(255,255,255,0.9)] transition-colors ${hovered ? "text-white" : ""}`}
+          className={`${TEXT_CLASS} prismatic-text-primary cursor-default transition-opacity ${hovered ? "opacity-100" : "opacity-90"}`}
           aria-label={ariaLabel}
         >
           ?
@@ -192,7 +192,7 @@ export function FloatingHelp({
           <div
             ref={tooltipRef}
             role="tooltip"
-            className="pointer-events-none fixed z-[60] w-[200px] rounded-2xl bg-black/75 px-3 py-2.5 lowercase text-white/90 shadow-lg backdrop-blur-sm transition-opacity duration-150"
+            className="prismatic-bg-overlay prismatic-text-primary pointer-events-none fixed z-[60] w-[200px] rounded-2xl px-3 py-2.5 lowercase shadow-lg backdrop-blur-sm transition-opacity duration-150"
             style={{
               top: placement?.top ?? -9999,
               left: placement?.left ?? -9999,

@@ -1,6 +1,10 @@
 import { useId, useRef, useState, type KeyboardEvent } from "react"
 import type { PreviewKind } from "../../canvas/types"
 import { imageComponentMetrics } from "../../workspace/imageLayout"
+import { BUTTON_TEXT_LG, ButtonEllipseVisual } from "./Button"
+
+const TEXT_SM =
+  "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[12px] leading-[1.1] tracking-[-0.24px] lowercase"
 
 export type ImageComponentProps = {
   src: string
@@ -10,11 +14,6 @@ export type ImageComponentProps = {
   size: number
   onReplace: (file: File) => void
 }
-
-const TEXT_LG =
-  "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] lowercase"
-const TEXT_SM =
-  "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[12px] leading-[1.1] tracking-[-0.24px] lowercase"
 
 export function ImageComponent({
   src,
@@ -87,7 +86,7 @@ export function ImageComponent({
       >
         <div
           className={[
-            "flex w-full max-w-[274px] flex-col justify-center rounded-[var(--radius)] border border-solid border-white bg-[rgba(212,212,212,0.2)] pl-[18px] pr-[12px] text-[rgba(212,212,212,0.9)] backdrop-blur-[10px] transition-[background-color,border-color] duration-200 group-hover:border-transparent group-hover:bg-[rgba(255,255,255,0.5)] group-hover:text-[rgba(255,255,255,0.9)]",
+            "prismatic-border-accent prismatic-bg-image-meta flex w-full max-w-[274px] flex-col justify-center rounded-[var(--radius)] border border-solid pl-[18px] pr-[12px] prismatic-text-muted backdrop-blur-[10px] transition-[background-color,border-color,color] duration-200 group-hover:border-transparent group-hover:prismatic-bg-image-meta-hover group-hover:prismatic-text-primary",
             metrics.showFileSize ? "gap-2 py-3" : "py-2.5",
           ].join(" ")}
           style={{
@@ -99,7 +98,7 @@ export function ImageComponent({
             className={[
               "line-clamp-2",
               metrics.compactFilename ? "max-h-[28px]" : "max-h-[44px]",
-              metrics.compactFilename ? TEXT_SM : TEXT_LG,
+              metrics.compactFilename ? TEXT_SM : BUTTON_TEXT_LG,
             ].join(" ")}
           >
             {shortName}
@@ -108,36 +107,13 @@ export function ImageComponent({
             <p className={TEXT_SM}>{sizeKB} kb</p>
           )}
         </div>
-        <div
-          className="relative flex w-full max-w-[274px] items-center justify-center"
-          style={{
-            width: metrics.metaWidth,
-            height: metrics.replaceHeight,
-          }}
+        <ButtonEllipseVisual
+          active={isActive}
+          width={metrics.metaWidth}
+          height={metrics.replaceHeight}
         >
-          <svg
-            viewBox="0 0 274 120"
-            preserveAspectRatio="none"
-            aria-hidden="true"
-            className="absolute inset-0 size-full"
-          >
-            <ellipse
-              cx="137"
-              cy="60"
-              rx="136"
-              ry="59"
-              fill={isActive ? "white" : "transparent"}
-              stroke={isActive ? "transparent" : "white"}
-              strokeWidth="1"
-              vectorEffect="non-scaling-stroke"
-            />
-          </svg>
-          <span
-            className={`relative z-[1] text-[rgba(212,212,212,0.9)] ${TEXT_LG}`}
-          >
-            replace
-          </span>
-        </div>
+          replace
+        </ButtonEllipseVisual>
       </div>
       <input
         ref={inputRef}

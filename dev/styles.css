@@ -1,0 +1,16 @@
+@import "tailwindcss";
+@source "../src/**/*.tsx";
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--prismatic-app-bg);
+  color: var(--prismatic-text-primary);
+  font-family: "PP Neue Montreal", system-ui, sans-serif;
+  overflow: hidden;
+}

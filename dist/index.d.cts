@@ -3,6 +3,100 @@ import { ReactNode, ButtonHTMLAttributes } from 'react';
 import { UseBoundStore, StoreApi } from 'zustand';
 import p5 from 'p5';
 
+type PrismaticBlendMode = "normal" | "multiply" | "screen" | "overlay" | "darken" | "lighten" | "color-dodge" | "color-burn" | "hard-light" | "soft-light" | "difference" | "exclusion" | "hue" | "saturation" | "color" | "luminosity";
+declare const PRISMATIC_BLEND_MODES: PrismaticBlendMode[];
+/** Six base colours — everything else is derived automatically. */
+type PrismaticPalette = {
+    /** App page background. */
+    background: string;
+    /** Control chrome — sliders, canvas frame. */
+    surface: string;
+    /** Text, strokes, borders. */
+    foreground: string;
+    /** Active / hover emphasis fills. */
+    accent: string;
+    /** Text on accent fills — button hover, active radio, etc. */
+    onAccent: string;
+    /** Muted fill — slider pill, inactive radio rows. */
+    muted: string;
+};
+type PrismaticPaletteToken = keyof PrismaticPalette;
+type PrismaticPaletteBlendModes = Record<PrismaticPaletteToken, PrismaticBlendMode>;
+declare const PRISMATIC_PALETTE_TOKEN_KEYS: readonly ["background", "surface", "foreground", "accent", "onAccent", "muted"];
+declare const PRISMATIC_PALETTE_TOKEN_LABELS: Record<PrismaticPaletteToken, string>;
+declare const DEFAULT_PRISMATIC_PALETTE: PrismaticPalette;
+declare const DEFAULT_PRISMATIC_PALETTE_BLEND_MODES: PrismaticPaletteBlendModes;
+/** Derived token set consumed by components (do not edit manually). */
+type PrismaticTheme = {
+    appBackground: string;
+    canvasBackground: string;
+    surface: string;
+    surfaceMuted: string;
+    surfaceActive: string;
+    borderSubtle: string;
+    textPrimary: string;
+    textMuted: string;
+    textOnActive: string;
+    accentStroke: string;
+    overlayBackground: string;
+    gridLine: string;
+    imageMetaBackground: string;
+    imageMetaBackgroundHover: string;
+};
+type PrismaticThemeToken = keyof PrismaticTheme;
+type PrismaticThemeBlendModes = Record<PrismaticThemeToken, PrismaticBlendMode>;
+type PrismaticThemeInput = {
+    palette?: Partial<PrismaticPalette>;
+    paletteBlendModes?: Partial<PrismaticPaletteBlendModes>;
+} | {
+    colors?: Partial<PrismaticTheme>;
+    blendModes?: Partial<PrismaticThemeBlendModes>;
+};
+declare const PRISMATIC_THEME_CSS_VARS: {
+    readonly appBackground: "--prismatic-app-bg";
+    readonly canvasBackground: "--prismatic-canvas-bg";
+    readonly surface: "--prismatic-surface";
+    readonly surfaceMuted: "--prismatic-surface-muted";
+    readonly surfaceActive: "--prismatic-surface-active";
+    readonly borderSubtle: "--prismatic-border-subtle";
+    readonly textPrimary: "--prismatic-text-primary";
+    readonly textMuted: "--prismatic-text-muted";
+    readonly textOnActive: "--prismatic-text-on-active";
+    readonly accentStroke: "--prismatic-accent-stroke";
+    readonly overlayBackground: "--prismatic-overlay-bg";
+    readonly gridLine: "--prismatic-grid-line";
+    readonly imageMetaBackground: "--prismatic-image-meta-bg";
+    readonly imageMetaBackgroundHover: "--prismatic-image-meta-bg-hover";
+};
+type RgbColor = {
+    r: number;
+    g: number;
+    b: number;
+    a: number;
+};
+declare function parseColor(value: string): RgbColor;
+declare function resolvePrismaticPalette(palette?: Partial<PrismaticPalette>): PrismaticPalette;
+declare function deriveThemeFromPalette(palette: PrismaticPalette): PrismaticTheme;
+declare const DEFAULT_PRISMATIC_THEME: PrismaticTheme;
+declare const DEFAULT_PRISMATIC_THEME_BLEND_MODES: PrismaticThemeBlendModes;
+declare function normalizeThemeInput(theme?: Partial<PrismaticTheme> | PrismaticThemeInput): {
+    palette: PrismaticPalette;
+    paletteBlendModes: PrismaticPaletteBlendModes;
+    colors: PrismaticTheme;
+    blendModes: PrismaticThemeBlendModes;
+};
+declare function resolvePrismaticTheme(theme?: Partial<PrismaticTheme>): PrismaticTheme;
+declare function formatPrismaticThemeCss(colors: PrismaticTheme, blendModes?: PrismaticThemeBlendModes, palette?: PrismaticPalette, paletteBlendModes?: PrismaticPaletteBlendModes): string;
+type PrismaticThemePreset = {
+    id: string;
+    label: string;
+    theme: PrismaticThemeInput;
+};
+declare const PRISMATIC_THEME_PRESETS: PrismaticThemePreset[];
+declare function getRuntimeTheme(): PrismaticTheme;
+declare function getRuntimeThemeBlendModes(): PrismaticThemeBlendModes;
+declare function getRuntimePalette(): PrismaticPalette;
+
 type PrismaticConfig = {
     workspace?: {
         /** Enable workspace layout mode (toggle via keyboard shortcut). */
@@ -37,6 +131,8 @@ type PrismaticConfig = {
         sliderItemHeight?: number;
         imageDesignSize?: number;
     };
+    /** Palette (preferred) or explicit token overrides — applied as CSS custom properties. */
+    theme?: Partial<PrismaticTheme> | PrismaticThemeInput;
 };
 type ResolvedPrismaticConfig = {
     workspace: Required<Omit<NonNullable<PrismaticConfig["workspace"]>, "snapExcludedPanelIds">> & {
@@ -45,6 +141,10 @@ type ResolvedPrismaticConfig = {
     canvas: Required<NonNullable<PrismaticConfig["canvas"]>>;
     shortcuts: Required<NonNullable<PrismaticConfig["shortcuts"]>>;
     layout: Required<NonNullable<PrismaticConfig["layout"]>>;
+    palette: PrismaticPalette;
+    paletteBlendModes: PrismaticPaletteBlendModes;
+    theme: PrismaticTheme;
+    themeBlendModes: PrismaticThemeBlendModes;
 };
 declare const DEFAULT_PRISMATIC_CONFIG: ResolvedPrismaticConfig;
 declare function resolvePrismaticConfig(config?: PrismaticConfig): ResolvedPrismaticConfig;
@@ -180,14 +280,23 @@ type SlidersPanelProps = {
 };
 declare function SlidersPanel({ children, panelId }: SlidersPanelProps): react.JSX.Element;
 
-type ButtonVariant = "save" | "frame";
+declare const BUTTON_TEXT_LG = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] lowercase";
+declare const BUTTON_ELLIPSE_WIDTH = 274;
+declare const BUTTON_ELLIPSE_HEIGHT = 120;
+type ButtonEllipseVisualProps = {
+    active: boolean;
+    children: ReactNode;
+    width?: number;
+    height?: number;
+    className?: string;
+};
+declare function ButtonEllipseVisual({ active, children, width, height, className, }: ButtonEllipseVisualProps): react.JSX.Element;
 type ButtonProps = {
     children: ReactNode;
-    variant?: ButtonVariant;
-    /** Background image URL for the save variant. */
-    saveButtonBg?: string;
+    width?: number;
+    height?: number;
 } & ButtonHTMLAttributes<HTMLButtonElement>;
-declare function Button({ children, variant, saveButtonBg, className, type, ...rest }: ButtonProps): react.JSX.Element;
+declare function Button({ children, width, height, className, type, disabled, onMouseEnter, onMouseLeave, onFocus, onBlur, ...rest }: ButtonProps): react.JSX.Element;
 
 type SliderProps = {
     label: string;
@@ -347,4 +456,4 @@ declare function findAutoPlacedPosition(panelId: PanelId, current: PixelPosition
 /** @deprecated Use findAutoPlacedPosition */
 declare const findShortcutsPosition: typeof findAutoPlacedPosition;
 
-export { Button, type ButtonProps, type ButtonVariant, type CanvasDragDebug, CreativeCanvas, type CreativeCanvasHandle, type CreativeCanvasProps, DEFAULT_IMAGE_MODULES, DEFAULT_PRISMATIC_CONFIG, DEFAULT_SLIDER_COLUMNS, type DistributionGuide, FloatingHelp, IMAGE_DESIGN_SIZE, IMAGE_PREVIEW_MODULES, ImageComponent, type ImageComponentProps, ImagePanel, LAYOUT_GAP, MODULE, type P5WithSketch, type PanelDragDebug$1 as PanelDragDebug, type PanelId, type PanelLayoutEntry, type PanelRect, type PanelSize, type PixelPosition, type PreviewKind, type PrismaticConfig, PrismaticProvider, type PrismaticProviderProps, type PrismaticStoreInit, type PrismaticStoreState, Radio, type RadioProps, type ResolvedPrismaticConfig, SLIDER_COUNT, type SketchFactory, Slider, type SliderProps, SlidersPanel, type SnapGuides, type UiGroupId, type UiGroupRect, type UiGroupSize, type Viewport, type VisualSnapGuides, WorkspaceDebugOverlay, WorkspaceGroup, WorkspacePanel, type WorkspacePanelProps, WorkspaceShell, type WorkspaceShellProps, chunkIntoColumns, clampImageModules, clampSliderColumns, clampToWorkspaceBounds, collectCanvasPanSnapTargets, collectSnapTargets, collectWorkspaceSnapLines, columnCountFromWidth, createGridLayout, createPrismaticStore, findAutoPlacedPosition, findShortcutsPosition, getActiveCanvasSnapLines, getActiveDistributionGuides, getActiveVisualSnapLines, getCanvasScreenRect, getCanvasSnapTargetIds, getSnapTargetIds, getWindowMarginRect, imageComponentMetrics, imageModulesFromSize, imagePanelSize, imagePreviewSizePx, isSnapParticipant, isSnappedToTopMargin, isUiPositionClear, layoutGap, mergePanelSizes, moduleSize, moduleSpanPx, resolvePrismaticConfig, samePanelIds, sameUiGroupIds, sliderColumnWidthPx, slidersPanelSize, snapCanvasPan, snapPosition, snapScalar, snapThreshold, usePanelPosition, usePrismaticStore, useWorkspaceGroup, useWorkspaceMode, useWorkspacePanel, windowMargin };
+export { BUTTON_ELLIPSE_HEIGHT, BUTTON_ELLIPSE_WIDTH, BUTTON_TEXT_LG, Button, ButtonEllipseVisual, type ButtonEllipseVisualProps, type ButtonProps, type CanvasDragDebug, CreativeCanvas, type CreativeCanvasHandle, type CreativeCanvasProps, DEFAULT_IMAGE_MODULES, DEFAULT_PRISMATIC_CONFIG, DEFAULT_PRISMATIC_PALETTE, DEFAULT_PRISMATIC_PALETTE_BLEND_MODES, DEFAULT_PRISMATIC_THEME, DEFAULT_PRISMATIC_THEME_BLEND_MODES, DEFAULT_SLIDER_COLUMNS, type DistributionGuide, FloatingHelp, IMAGE_DESIGN_SIZE, IMAGE_PREVIEW_MODULES, ImageComponent, type ImageComponentProps, ImagePanel, LAYOUT_GAP, MODULE, type P5WithSketch, PRISMATIC_BLEND_MODES, PRISMATIC_PALETTE_TOKEN_KEYS, PRISMATIC_PALETTE_TOKEN_LABELS, PRISMATIC_THEME_CSS_VARS, PRISMATIC_THEME_PRESETS, type PanelDragDebug$1 as PanelDragDebug, type PanelId, type PanelLayoutEntry, type PanelRect, type PanelSize, type PixelPosition, type PreviewKind, type PrismaticBlendMode, type PrismaticConfig, type PrismaticPalette, type PrismaticPaletteBlendModes, type PrismaticPaletteToken, PrismaticProvider, type PrismaticProviderProps, type PrismaticStoreInit, type PrismaticStoreState, type PrismaticTheme, type PrismaticThemeBlendModes, type PrismaticThemeInput, type PrismaticThemePreset, type PrismaticThemeToken, Radio, type RadioProps, type ResolvedPrismaticConfig, type RgbColor, SLIDER_COUNT, type SketchFactory, Slider, type SliderProps, SlidersPanel, type SnapGuides, type UiGroupId, type UiGroupRect, type UiGroupSize, type Viewport, type VisualSnapGuides, WorkspaceDebugOverlay, WorkspaceGroup, WorkspacePanel, type WorkspacePanelProps, WorkspaceShell, type WorkspaceShellProps, chunkIntoColumns, clampImageModules, clampSliderColumns, clampToWorkspaceBounds, collectCanvasPanSnapTargets, collectSnapTargets, collectWorkspaceSnapLines, columnCountFromWidth, createGridLayout, createPrismaticStore, deriveThemeFromPalette, findAutoPlacedPosition, findShortcutsPosition, formatPrismaticThemeCss, getActiveCanvasSnapLines, getActiveDistributionGuides, getActiveVisualSnapLines, getCanvasScreenRect, getCanvasSnapTargetIds, getRuntimePalette, getRuntimeTheme, getRuntimeThemeBlendModes, getSnapTargetIds, getWindowMarginRect, imageComponentMetrics, imageModulesFromSize, imagePanelSize, imagePreviewSizePx, isSnapParticipant, isSnappedToTopMargin, isUiPositionClear, layoutGap, mergePanelSizes, moduleSize, moduleSpanPx, normalizeThemeInput, parseColor, resolvePrismaticConfig, resolvePrismaticPalette, resolvePrismaticTheme, samePanelIds, sameUiGroupIds, sliderColumnWidthPx, slidersPanelSize, snapCanvasPan, snapPosition, snapScalar, snapThreshold, usePanelPosition, usePrismaticStore, useWorkspaceGroup, useWorkspaceMode, useWorkspacePanel, windowMargin };

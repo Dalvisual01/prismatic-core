@@ -10,6 +10,7 @@ import {
   setRuntimeConfig,
   type PrismaticConfig,
 } from "../config"
+import { prismaticThemeToCssProperties } from "../theme/tokens"
 import {
   createPrismaticStore,
   type PrismaticStoreInit,
@@ -31,6 +32,14 @@ export function PrismaticProvider({
   children,
 }: PrismaticProviderProps) {
   const resolvedConfig = useMemo(() => resolvePrismaticConfig(config), [config])
+  const themeStyle = useMemo(
+    () =>
+      prismaticThemeToCssProperties(
+        resolvedConfig.theme,
+        resolvedConfig.themeBlendModes,
+      ),
+    [resolvedConfig.theme, resolvedConfig.themeBlendModes],
+  )
 
   const store = useMemo(
     () => createPrismaticStore(storeInit),
@@ -42,9 +51,28 @@ export function PrismaticProvider({
     setRuntimeConfig(resolvedConfig)
   }, [resolvedConfig])
 
+  useEffect(() => {
+    const root = document.documentElement
+    const previous = new Map<string, string>()
+
+    for (const [cssVar, value] of Object.entries(themeStyle)) {
+      previous.set(cssVar, root.style.getPropertyValue(cssVar))
+      root.style.setProperty(cssVar, value)
+    }
+
+    return () => {
+      for (const [cssVar, value] of previous) {
+        if (value) root.style.setProperty(cssVar, value)
+        else root.style.removeProperty(cssVar)
+      }
+    }
+  }, [themeStyle])
+
   return (
     <PrismaticStoreContext.Provider value={store}>
-      {children}
+      <div className="prismatic-root contents" style={themeStyle}>
+        {children}
+      </div>
     </PrismaticStoreContext.Provider>
   )
 }

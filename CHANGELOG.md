@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.0 — 2026-06-15
+
+### Added
+
+- **Theming system** — configure 6 palette colours; Prismatic derives all UI tokens (text, borders, overlays, blend modes)
+- `theme.palette` and `theme.paletteBlendModes` on `PrismaticConfig`
+- Theme utilities: `parseColor`, `getRuntimeTheme`, `formatPrismaticThemeCss`, `PRISMATIC_THEME_PRESETS`
+- CSS custom properties and `prismatic-*` utility classes in `style.css`
+- `ButtonEllipseVisual` component and ellipse-based `Button` (replaces SVG background asset)
+- Component playground (`npm run dev:playground`) for live theme tuning and UI preview
+
+### Changed
+
+- All workspace UI components use theme tokens instead of hardcoded colours
+- `WorkspaceShell` stays at `z-30` so panels remain interactive outside workspace mode
+- `Button` API simplified — removed `variant` and `saveButtonBg` props
+
 ## 0.1.0 — 2026-06-10
 
 Initial release extracted from pic-stretch.

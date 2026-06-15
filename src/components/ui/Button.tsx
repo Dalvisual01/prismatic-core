@@ -1,45 +1,106 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react"
+import { useState, type ButtonHTMLAttributes, type ReactNode } from "react"
 
-export type ButtonVariant = "save" | "frame"
+export const BUTTON_TEXT_LG =
+  "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] lowercase"
+
+export const BUTTON_ELLIPSE_WIDTH = 274
+export const BUTTON_ELLIPSE_HEIGHT = 120
+
+export type ButtonEllipseVisualProps = {
+  active: boolean
+  children: ReactNode
+  width?: number
+  height?: number
+  className?: string
+}
+
+export function ButtonEllipseVisual({
+  active,
+  children,
+  width = BUTTON_ELLIPSE_WIDTH,
+  height = BUTTON_ELLIPSE_HEIGHT,
+  className = "",
+}: ButtonEllipseVisualProps) {
+  return (
+    <div
+      className={`relative isolate flex items-center justify-center ${className}`}
+      style={{ width, height }}
+    >
+      <svg
+        viewBox={`0 0 ${BUTTON_ELLIPSE_WIDTH} ${BUTTON_ELLIPSE_HEIGHT}`}
+        preserveAspectRatio="none"
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 size-full"
+      >
+        <ellipse
+          cx="137"
+          cy="60"
+          rx="136"
+          ry="59"
+          fill={active ? "var(--prismatic-surface-active)" : "transparent"}
+          stroke={active ? "transparent" : "var(--prismatic-accent-stroke)"}
+          strokeWidth="1"
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+      <span
+        className={`relative z-[2] mix-blend-normal ${active ? "prismatic-text-on-active" : "prismatic-text-muted"} ${BUTTON_TEXT_LG}`}
+      >
+        {children}
+      </span>
+    </div>
+  )
+}
 
 export type ButtonProps = {
   children: ReactNode
-  variant?: ButtonVariant
-  /** Background image URL for the save variant. */
-  saveButtonBg?: string
+  width?: number
+  height?: number
 } & ButtonHTMLAttributes<HTMLButtonElement>
 
 export function Button({
   children,
-  variant = "save",
-  saveButtonBg = 'url("/assets/save-button-bg.svg")',
+  width = BUTTON_ELLIPSE_WIDTH,
+  height = BUTTON_ELLIPSE_HEIGHT,
   className = "",
   type = "button",
+  disabled,
+  onMouseEnter,
+  onMouseLeave,
+  onFocus,
+  onBlur,
   ...rest
 }: ButtonProps) {
-  const size =
-    variant === "save"
-      ? "h-[113px] w-[216px] rounded-[var(--radius)]"
-      : "h-[120px] w-[194px] rounded-[var(--radius)]"
+  const [isActive, setIsActive] = useState(false)
+  const active = !disabled && isActive
 
   return (
     <button
       type={type}
-      className={`group relative flex cursor-pointer select-none items-center justify-center outline-none disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:outline-none ${size} ${className}`}
+      disabled={disabled}
+      className={`relative flex cursor-pointer select-none items-center justify-center outline-none disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:outline-none ${className}`}
+      style={{ width, height }}
+      onMouseEnter={(e) => {
+        if (!disabled) setIsActive(true)
+        onMouseEnter?.(e)
+      }}
+      onMouseLeave={(e) => {
+        setIsActive(false)
+        onMouseLeave?.(e)
+      }}
+      onFocus={(e) => {
+        if (!disabled) setIsActive(true)
+        onFocus?.(e)
+      }}
+      onBlur={(e) => {
+        setIsActive(false)
+        onBlur?.(e)
+      }}
       {...rest}
     >
-      <span className="absolute inset-0 flex items-center justify-center mix-blend-difference transform-gpu transition-transform duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform group-hover:scale-[1.02] group-active:scale-[0.98] group-disabled:scale-100">
-        {variant === "save" && (
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-0 bg-contain bg-center bg-no-repeat"
-            style={{ backgroundImage: saveButtonBg }}
-          />
-        )}
-        <span className="relative z-[1] text-center font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] text-black lowercase">
-          {children}
-        </span>
-      </span>
+      <ButtonEllipseVisual active={active} width={width} height={height}>
+        {children}
+      </ButtonEllipseVisual>
     </button>
   )
 }

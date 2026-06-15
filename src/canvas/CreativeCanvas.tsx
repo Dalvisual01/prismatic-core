@@ -16,6 +16,7 @@ import {
 } from "../workspace/canvasSnap"
 import { samePanelIds } from "../workspace/snap"
 import type { PanelId } from "../workspace/types"
+import { PRISMATIC_SURFACE_FRAME_STYLE } from "../theme/tokens"
 import type { P5WithSketch, PreviewKind, SketchFactory } from "./types"
 
 export type CreativeCanvasHandle = {
@@ -536,15 +537,14 @@ export const CreativeCanvas = forwardRef<CreativeCanvasHandle, CreativeCanvasPro
         <div
           ref={containerRef}
           className={[
-            "inline-flex p-1 rounded-[calc(var(--radius)*2+4px)] [&_canvas]:block [&_canvas]:max-h-none [&_canvas]:max-w-none [&_canvas]:rounded-[calc(var(--radius)*2)]",
+            "prismatic-surface-frame inline-flex p-1 rounded-[calc(var(--radius)*2+4px)] [&_canvas]:block [&_canvas]:max-h-none [&_canvas]:max-w-none [&_canvas]:rounded-[calc(var(--radius)*2)]",
             workspaceMode
               ? "pointer-events-auto cursor-grab active:cursor-grabbing"
               : "pointer-events-none",
           ].join(" ")}
           style={{
             transformOrigin: "center center",
-            backgroundImage:
-              "linear-gradient(90deg, rgb(36, 35, 38) 0%, rgb(36, 35, 38) 100%), linear-gradient(90deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.1) 100%)",
+            ...PRISMATIC_SURFACE_FRAME_STYLE,
           }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}

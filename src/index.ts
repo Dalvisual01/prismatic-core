@@ -3,8 +3,39 @@ export {
   DEFAULT_PRISMATIC_CONFIG,
   resolvePrismaticConfig,
   type PrismaticConfig,
+  type PrismaticPalette,
+  type PrismaticPaletteBlendModes,
+  type PrismaticTheme,
+  type PrismaticThemeBlendModes,
+  type PrismaticThemeInput,
   type ResolvedPrismaticConfig,
 } from "./config"
+
+export {
+  DEFAULT_PRISMATIC_PALETTE,
+  DEFAULT_PRISMATIC_PALETTE_BLEND_MODES,
+  DEFAULT_PRISMATIC_THEME,
+  DEFAULT_PRISMATIC_THEME_BLEND_MODES,
+  PRISMATIC_BLEND_MODES,
+  PRISMATIC_PALETTE_TOKEN_KEYS,
+  PRISMATIC_PALETTE_TOKEN_LABELS,
+  PRISMATIC_THEME_CSS_VARS,
+  PRISMATIC_THEME_PRESETS,
+  deriveThemeFromPalette,
+  formatPrismaticThemeCss,
+  getRuntimePalette,
+  getRuntimeTheme,
+  getRuntimeThemeBlendModes,
+  normalizeThemeInput,
+  parseColor,
+  resolvePrismaticPalette,
+  resolvePrismaticTheme,
+  type PrismaticBlendMode,
+  type PrismaticPaletteToken,
+  type PrismaticThemePreset,
+  type PrismaticThemeToken,
+  type RgbColor,
+} from "./theme/tokens"
 
 // Provider & store
 export { PrismaticProvider, type PrismaticProviderProps } from "./provider/PrismaticProvider"
@@ -46,7 +77,7 @@ export { ImagePanel } from "./components/panels/ImagePanel"
 export { SlidersPanel } from "./components/panels/SlidersPanel"
 
 // UI primitives
-export { Button, type ButtonProps, type ButtonVariant } from "./components/ui/Button"
+export { Button, type ButtonProps, ButtonEllipseVisual, type ButtonEllipseVisualProps, BUTTON_TEXT_LG, BUTTON_ELLIPSE_WIDTH, BUTTON_ELLIPSE_HEIGHT } from "./components/ui/Button"
 export { Slider, type SliderProps } from "./components/ui/Slider"
 export { Radio, type RadioProps } from "./components/ui/Radio"
 export {

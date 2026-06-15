@@ -6,6 +6,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react"
+import { PRISMATIC_SURFACE_FRAME_STYLE } from "../../theme/tokens"
 
 export type SliderProps = {
   label: string
@@ -29,11 +30,6 @@ function snapToStep(value: number, min: number, step: number) {
   const steps = Math.round((value - min) / step)
   return min + steps * step
 }
-
-const outerBgStyle = {
-  backgroundImage:
-    "linear-gradient(90deg, rgb(36, 35, 38) 0%, rgb(36, 35, 38) 100%), linear-gradient(90deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.1) 100%)",
-} as const
 
 /** Figma compact row height; two rows + gap-1 = 60px content; outer frame 70px with p-1 (62px area). */
 const ROW_H = 28
@@ -202,8 +198,13 @@ export function Slider({
 
   return (
     <div
-      className="relative box-border flex w-full flex-col justify-center overflow-hidden rounded-[var(--radius)] p-1"
-      style={{ ...outerBgStyle, height: OUTER_H, minHeight: OUTER_H, maxHeight: OUTER_H }}
+      className="prismatic-surface-frame relative box-border flex w-full flex-col justify-center overflow-hidden rounded-[var(--radius)] p-1"
+      style={{
+        ...PRISMATIC_SURFACE_FRAME_STYLE,
+        height: OUTER_H,
+        minHeight: OUTER_H,
+        maxHeight: OUTER_H,
+      }}
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
     >
@@ -216,7 +217,7 @@ export function Slider({
         aria-valuenow={value}
         aria-label={label}
         tabIndex={0}
-        className={`absolute inset-0 z-10 touch-none select-none rounded-[var(--radius)] outline-none focus-visible:ring-2 focus-visible:ring-white/30 ${
+        className={`absolute inset-0 z-10 touch-none select-none rounded-[var(--radius)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--prismatic-border-subtle)] ${
           isToggle ? "cursor-pointer" : "cursor-ew-resize"
         }`}
         onPointerDown={onPointerDown}
@@ -256,7 +257,7 @@ export function Slider({
             {/* Fill pill (visual width) */}
             <div
               className={`pointer-events-none absolute inset-y-0 left-0 rounded-[var(--radius-inner)] ${
-                showRange ? "bg-transparent" : "bg-[#313034]"
+                showRange ? "bg-transparent" : "prismatic-bg-surface-muted"
               }`}
               style={{
                 width: pillWidthStyle.width,
@@ -285,7 +286,7 @@ export function Slider({
 
             {/* Foreground label (full width, never clipped by fill) */}
             <div className="relative z-[1] flex w-full min-w-0 items-center pl-[18px] pr-3">
-              <p className="min-w-0 truncate font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] text-[rgba(255,255,255,0.9)] lowercase">
+              <p className="min-w-0 truncate font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] prismatic-text-primary lowercase">
                 {label}
               </p>
             </div>
@@ -300,7 +301,7 @@ export function Slider({
                 ref={valueInputRef}
                 value={draftValue}
                 inputMode="decimal"
-                className="w-[120px] bg-transparent text-right font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] text-white tabular-nums outline-none"
+                className="w-[120px] bg-transparent text-right font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] prismatic-text-primary tabular-nums outline-none"
                 onChange={(e) => setDraftValue(e.target.value)}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => e.stopPropagation()}
@@ -319,7 +320,7 @@ export function Slider({
             ) : (
               <button
                 type="button"
-                className="cursor-text text-right font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] text-white tabular-nums"
+                className="cursor-text text-right font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] prismatic-text-primary tabular-nums"
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation()
@@ -348,7 +349,7 @@ export function Slider({
             <div className="relative flex min-h-0 flex-1 items-stretch" style={bottomRowHeightStyle}>
               {/* Fill pill (visual width) */}
               <div
-                className="pointer-events-none absolute inset-y-0 left-0 overflow-hidden rounded-[var(--radius-inner-sm)] bg-[#313034] backdrop-blur-[14.649px] [corner-shape:round]"
+                className="prismatic-bg-surface-muted pointer-events-none absolute inset-y-0 left-0 overflow-hidden rounded-[var(--radius-inner-sm)] backdrop-blur-[14.649px] [corner-shape:round]"
                 style={{
                   width: pillWidthStyle.width,
                   minWidth: pillWidthStyle.minWidth,
@@ -377,7 +378,7 @@ export function Slider({
 
               {/* Foreground min label (full width, never clipped by fill) */}
               <div className="relative z-[1] flex w-full min-w-0 items-center pl-[18px] pr-3">
-                <p className="font-['PP_Neue_Montreal',system-ui,sans-serif] text-[12px] leading-[1.1] tracking-[-0.24px] text-[rgba(255,255,255,0.9)] tabular-nums lowercase">
+                <p className="font-['PP_Neue_Montreal',system-ui,sans-serif] text-[12px] leading-[1.1] tracking-[-0.24px] prismatic-text-primary tabular-nums lowercase">
                   {minLabel}
                 </p>
               </div>
@@ -388,7 +389,7 @@ export function Slider({
             className="pointer-events-none flex shrink-0 items-center justify-end pl-2"
             style={bottomRowHeightStyle}
           >
-            <p className="font-['PP_Neue_Montreal',system-ui,sans-serif] text-[12px] leading-[1.1] tracking-[-0.24px] text-white tabular-nums lowercase">
+            <p className="font-['PP_Neue_Montreal',system-ui,sans-serif] text-[12px] leading-[1.1] tracking-[-0.24px] prismatic-text-primary tabular-nums lowercase">
               {maxLabel}
             </p>
           </div>

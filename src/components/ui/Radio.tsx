@@ -12,8 +12,8 @@ type RadioRowProps = {
 
 function RadioRow({ label, isActive, onClick }: RadioRowProps) {
   const bg = isActive
-    ? "bg-[#e1e1e1] hover:bg-[rgba(225,225,225,0.5)]"
-    : "bg-[#313034]"
+    ? "prismatic-bg-surface-active hover:opacity-80"
+    : "prismatic-bg-surface-muted"
 
   return (
     <button
@@ -24,7 +24,9 @@ function RadioRow({ label, isActive, onClick }: RadioRowProps) {
       }}
       className={`group/radio flex h-9 min-w-0 cursor-pointer items-center px-2.5 outline-none transition-[min-width,background-color] duration-200 ease-out hover:min-w-[304.012px] ${bg}`}
     >
-      <span className={`${TEXT_CLASS} ${isActive ? "text-black" : "text-white mix-blend-difference"}`}>
+      <span
+        className={`${TEXT_CLASS} ${isActive ? "prismatic-text-on-active" : "prismatic-text-primary"}`}
+      >
         {label}
       </span>
     </button>

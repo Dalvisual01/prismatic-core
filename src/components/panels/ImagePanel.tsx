@@ -46,7 +46,7 @@ function ImageSizeToolbar({ modules, onChange }: ImageSizeToolbarProps) {
 
   return (
     <div
-      className="workspace-controls flex items-center gap-0.5 rounded-full bg-black/75 p-0.5 text-white shadow-lg backdrop-blur-sm"
+      className="workspace-controls prismatic-bg-overlay prismatic-text-primary flex items-center gap-0.5 rounded-full p-0.5 shadow-lg backdrop-blur-sm"
       role="toolbar"
       aria-label="Preview size"
     >
@@ -62,8 +62,8 @@ function ImageSizeToolbar({ modules, onChange }: ImageSizeToolbarProps) {
             className={[
               "flex items-center gap-1 rounded-full px-2 py-1 text-[10px] lowercase transition-colors",
               active
-                ? "bg-white text-black"
-                : "text-white/80 hover:bg-white/15 hover:text-white",
+                ? "prismatic-bg-surface-active prismatic-text-on-active"
+                : "prismatic-text-primary hover:prismatic-bg-border-subtle",
             ].join(" ")}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => onChange(count)}
@@ -192,12 +192,12 @@ export function ImagePanel({ children, panelId = "image" }: ImagePanelProps) {
             onPointerCancel={finishResize}
             aria-label="Resize preview"
           >
-            <div className="absolute right-0.5 bottom-0.5 size-2 rounded-sm border-r border-b border-white/70" />
+            <div className="absolute right-0.5 bottom-0.5 size-2 rounded-sm border-r border-b border-[var(--prismatic-accent-stroke)] opacity-70" />
           </div>
         )}
 
         {workspaceMode && resizing && (
-          <div className="workspace-controls pointer-events-none absolute bottom-1 left-1/2 z-30 -translate-x-1/2 rounded-full bg-black/70 px-2 py-0.5 text-[10px] text-white/90 lowercase backdrop-blur-sm">
+          <div className="workspace-controls prismatic-bg-overlay prismatic-text-primary pointer-events-none absolute bottom-1 left-1/2 z-30 -translate-x-1/2 rounded-full px-2 py-0.5 text-[10px] lowercase backdrop-blur-sm">
             {panelSize.width}px
           </div>
         )}

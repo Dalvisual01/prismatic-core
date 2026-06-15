@@ -10,6 +10,377 @@ function _interopDefault (e) { return e && e.__esModule ? e : { default: e }; }
 
 var p5__default = /*#__PURE__*/_interopDefault(p5);
 
+// src/theme/tokens.ts
+var PRISMATIC_BLEND_MODES = [
+  "normal",
+  "multiply",
+  "screen",
+  "overlay",
+  "darken",
+  "lighten",
+  "color-dodge",
+  "color-burn",
+  "hard-light",
+  "soft-light",
+  "difference",
+  "exclusion",
+  "hue",
+  "saturation",
+  "color",
+  "luminosity"
+];
+var PRISMATIC_PALETTE_TOKEN_KEYS = [
+  "background",
+  "surface",
+  "foreground",
+  "accent",
+  "onAccent",
+  "muted"
+];
+var PRISMATIC_PALETTE_TOKEN_LABELS = {
+  background: "background",
+  surface: "surface",
+  foreground: "foreground",
+  accent: "accent",
+  onAccent: "on accent",
+  muted: "muted"
+};
+function deriveDefaultMuted(surface, foreground, background) {
+  const dark = isDarkColor(background);
+  return mixColors(surface, foreground, dark ? 0.08 : 0.12);
+}
+var DEFAULT_PRISMATIC_PALETTE = {
+  background: "#141316",
+  surface: "rgb(36, 35, 38)",
+  foreground: "#ffffff",
+  accent: "#e1e1e1",
+  onAccent: "#000000",
+  muted: deriveDefaultMuted("rgb(36, 35, 38)", "#ffffff", "#141316")
+};
+var DEFAULT_PRISMATIC_PALETTE_BLEND_MODES = {
+  background: "normal",
+  surface: "normal",
+  foreground: "normal",
+  accent: "normal",
+  onAccent: "normal",
+  muted: "normal"
+};
+var PRISMATIC_THEME_CSS_VARS = {
+  appBackground: "--prismatic-app-bg",
+  canvasBackground: "--prismatic-canvas-bg",
+  surface: "--prismatic-surface",
+  surfaceMuted: "--prismatic-surface-muted",
+  surfaceActive: "--prismatic-surface-active",
+  borderSubtle: "--prismatic-border-subtle",
+  textPrimary: "--prismatic-text-primary",
+  textMuted: "--prismatic-text-muted",
+  textOnActive: "--prismatic-text-on-active",
+  accentStroke: "--prismatic-accent-stroke",
+  overlayBackground: "--prismatic-overlay-bg",
+  gridLine: "--prismatic-grid-line",
+  imageMetaBackground: "--prismatic-image-meta-bg",
+  imageMetaBackgroundHover: "--prismatic-image-meta-bg-hover"
+};
+function themeBlendModeCssVar(token) {
+  return `${PRISMATIC_THEME_CSS_VARS[token]}-blend-mode`;
+}
+function clampChannel(value) {
+  return Math.min(255, Math.max(0, value));
+}
+function parseColor(value) {
+  const trimmed = value.trim();
+  if (trimmed.startsWith("#")) {
+    const hex = trimmed.slice(1);
+    const normalized = hex.length === 3 ? hex.split("").map((c) => c + c).join("") : hex.padEnd(6, "0").slice(0, 6);
+    const r = Number.parseInt(normalized.slice(0, 2), 16);
+    const g = Number.parseInt(normalized.slice(2, 4), 16);
+    const b = Number.parseInt(normalized.slice(4, 6), 16);
+    return { r, g, b, a: 1 };
+  }
+  const rgbMatch = trimmed.match(
+    /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)$/i
+  );
+  if (rgbMatch) {
+    return {
+      r: Number(rgbMatch[1]),
+      g: Number(rgbMatch[2]),
+      b: Number(rgbMatch[3]),
+      a: rgbMatch[4] != null ? Number(rgbMatch[4]) : 1
+    };
+  }
+  return { r: 20, g: 19, b: 22, a: 1 };
+}
+function colorToRgbaString({ r, g, b, a }) {
+  const channels = [r, g, b].map((channel) => Math.round(channel));
+  return a < 1 ? `rgba(${channels[0]}, ${channels[1]}, ${channels[2]}, ${a})` : `rgb(${channels[0]}, ${channels[1]}, ${channels[2]})`;
+}
+function withAlpha(color, alpha) {
+  const { r, g, b } = parseColor(color);
+  return colorToRgbaString({ r, g, b, a: alpha });
+}
+function mixColors(a, b, amount) {
+  const left = parseColor(a);
+  const right = parseColor(b);
+  const t = Math.min(1, Math.max(0, amount));
+  return colorToRgbaString({
+    r: left.r + (right.r - left.r) * t,
+    g: left.g + (right.g - left.g) * t,
+    b: left.b + (right.b - left.b) * t,
+    a: left.a + (right.a - left.a) * t
+  });
+}
+function shadeColor(color, amount) {
+  const { r, g, b, a } = parseColor(color);
+  const factor = 1 + amount;
+  return colorToRgbaString({
+    r: clampChannel(r * factor),
+    g: clampChannel(g * factor),
+    b: clampChannel(b * factor),
+    a
+  });
+}
+function colorLuminance(color) {
+  const { r, g, b } = parseColor(color);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+function contrastOn(color) {
+  return colorLuminance(color) > 0.55 ? "#000000" : "#ffffff";
+}
+function isDarkColor(color) {
+  return colorLuminance(color) < 0.5;
+}
+function resolvePrismaticPalette(palette) {
+  const resolved = {
+    ...DEFAULT_PRISMATIC_PALETTE,
+    ...palette
+  };
+  if (palette?.onAccent == null && palette?.accent != null) {
+    resolved.onAccent = contrastOn(resolved.accent);
+  }
+  if (palette?.muted == null) {
+    resolved.muted = deriveDefaultMuted(
+      resolved.surface,
+      resolved.foreground,
+      resolved.background
+    );
+  }
+  return resolved;
+}
+function resolvePrismaticPaletteBlendModes(blendModes) {
+  return {
+    ...DEFAULT_PRISMATIC_PALETTE_BLEND_MODES,
+    ...blendModes
+  };
+}
+function deriveThemeFromPalette(palette) {
+  const dark = isDarkColor(palette.background);
+  return {
+    appBackground: palette.background,
+    canvasBackground: shadeColor(palette.background, dark ? -0.06 : -0.04),
+    surface: palette.surface,
+    surfaceMuted: palette.muted,
+    surfaceActive: palette.accent,
+    borderSubtle: withAlpha(palette.foreground, 0.1),
+    textPrimary: withAlpha(palette.foreground, 0.9),
+    textMuted: withAlpha(palette.foreground, 0.85),
+    textOnActive: palette.onAccent,
+    accentStroke: palette.foreground,
+    overlayBackground: withAlpha(
+      dark ? palette.background : palette.foreground,
+      dark ? 0.75 : 0.72
+    ),
+    gridLine: withAlpha(palette.foreground, 0.05),
+    imageMetaBackground: withAlpha(palette.foreground, dark ? 0.12 : 0.08),
+    imageMetaBackgroundHover: withAlpha(palette.foreground, dark ? 0.28 : 0.16)
+  };
+}
+function deriveBlendModesFromPalette(paletteBlendModes) {
+  return {
+    appBackground: paletteBlendModes.background,
+    canvasBackground: paletteBlendModes.background,
+    surface: paletteBlendModes.surface,
+    surfaceMuted: paletteBlendModes.muted,
+    surfaceActive: paletteBlendModes.accent,
+    borderSubtle: paletteBlendModes.foreground,
+    textPrimary: "normal",
+    textMuted: "normal",
+    textOnActive: "normal",
+    accentStroke: paletteBlendModes.foreground,
+    overlayBackground: paletteBlendModes.background,
+    gridLine: "normal",
+    imageMetaBackground: paletteBlendModes.surface,
+    imageMetaBackgroundHover: paletteBlendModes.surface
+  };
+}
+var DEFAULT_PRISMATIC_THEME = deriveThemeFromPalette(
+  DEFAULT_PRISMATIC_PALETTE
+);
+var DEFAULT_PRISMATIC_THEME_BLEND_MODES = deriveBlendModesFromPalette(
+  DEFAULT_PRISMATIC_PALETTE_BLEND_MODES
+);
+function isExplicitThemeInput(theme) {
+  if (!theme) return false;
+  return "colors" in theme || "blendModes" in theme;
+}
+function isPaletteThemeInput(theme) {
+  if (!theme) return false;
+  return "palette" in theme || "paletteBlendModes" in theme;
+}
+function normalizeThemeInput(theme) {
+  if (isPaletteThemeInput(theme)) {
+    const palette2 = resolvePrismaticPalette(theme.palette);
+    const paletteBlendModes2 = resolvePrismaticPaletteBlendModes(
+      theme.paletteBlendModes
+    );
+    return {
+      palette: palette2,
+      paletteBlendModes: paletteBlendModes2,
+      colors: deriveThemeFromPalette(palette2),
+      blendModes: deriveBlendModesFromPalette(paletteBlendModes2)
+    };
+  }
+  if (isExplicitThemeInput(theme)) {
+    const colors = {
+      ...DEFAULT_PRISMATIC_THEME,
+      ...theme.colors
+    };
+    const blendModes = {
+      ...DEFAULT_PRISMATIC_THEME_BLEND_MODES,
+      ...theme.blendModes
+    };
+    return {
+      palette: DEFAULT_PRISMATIC_PALETTE,
+      paletteBlendModes: DEFAULT_PRISMATIC_PALETTE_BLEND_MODES,
+      colors,
+      blendModes
+    };
+  }
+  if (theme && Object.keys(theme).length > 0) {
+    const colors = {
+      ...DEFAULT_PRISMATIC_THEME,
+      ...theme
+    };
+    return {
+      palette: DEFAULT_PRISMATIC_PALETTE,
+      paletteBlendModes: DEFAULT_PRISMATIC_PALETTE_BLEND_MODES,
+      colors,
+      blendModes: DEFAULT_PRISMATIC_THEME_BLEND_MODES
+    };
+  }
+  const palette = DEFAULT_PRISMATIC_PALETTE;
+  const paletteBlendModes = DEFAULT_PRISMATIC_PALETTE_BLEND_MODES;
+  return {
+    palette,
+    paletteBlendModes,
+    colors: deriveThemeFromPalette(palette),
+    blendModes: deriveBlendModesFromPalette(paletteBlendModes)
+  };
+}
+function resolvePrismaticTheme(theme) {
+  return normalizeThemeInput(theme).colors;
+}
+function prismaticThemeToCssProperties(colors, blendModes = DEFAULT_PRISMATIC_THEME_BLEND_MODES) {
+  const properties = {};
+  const tokens = Object.keys(PRISMATIC_THEME_CSS_VARS);
+  for (const token of tokens) {
+    properties[PRISMATIC_THEME_CSS_VARS[token]] = colors[token];
+    properties[themeBlendModeCssVar(token)] = blendModes[token];
+  }
+  return properties;
+}
+function formatPrismaticThemeCss(colors, blendModes = DEFAULT_PRISMATIC_THEME_BLEND_MODES, palette, paletteBlendModes) {
+  const tokens = Object.keys(PRISMATIC_THEME_CSS_VARS);
+  const rootVars = tokens.flatMap((token) => [
+    `  ${PRISMATIC_THEME_CSS_VARS[token]}: ${colors[token]};`,
+    `  ${themeBlendModeCssVar(token)}: ${blendModes[token]};`
+  ]);
+  const paletteComment = palette ? [
+    "/* palette */",
+    `/* background: ${palette.background}; */`,
+    `/* surface: ${palette.surface}; */`,
+    `/* foreground: ${palette.foreground}; */`,
+    `/* accent: ${palette.accent}; */`,
+    `/* onAccent: ${palette.onAccent}; */`,
+    `/* muted: ${palette.muted}; */`,
+    ...paletteBlendModes ? [
+      `/* foreground blend: ${paletteBlendModes.foreground}; */`
+    ] : [],
+    ""
+  ] : [];
+  return [
+    ...paletteComment,
+    ":root {",
+    ...rootVars,
+    "}",
+    "",
+    "body {",
+    "  background: var(--prismatic-app-bg);",
+    "  mix-blend-mode: var(--prismatic-app-bg-blend-mode, normal);",
+    "  color: var(--prismatic-text-primary);",
+    "}"
+  ].join("\n");
+}
+var PRISMATIC_THEME_PRESETS = [
+  { id: "default", label: "default", theme: {} },
+  {
+    id: "dusk",
+    label: "dusk",
+    theme: {
+      palette: {
+        background: "#120f1a",
+        surface: "rgb(44, 34, 58)",
+        foreground: "#e8e0ff",
+        accent: "#c8b6ff",
+        onAccent: "#120f1a"
+      }
+    }
+  },
+  {
+    id: "sand",
+    label: "sand",
+    theme: {
+      palette: {
+        background: "#ece6dc",
+        surface: "rgb(248, 244, 238)",
+        foreground: "#1f1b16",
+        accent: "#f8f4ee",
+        onAccent: "#1f1b16"
+      },
+      paletteBlendModes: {
+        foreground: "normal"
+      }
+    }
+  }
+];
+var runtimeTheme = normalizeThemeInput();
+function setRuntimeTheme(colors, blendModes = DEFAULT_PRISMATIC_THEME_BLEND_MODES) {
+  runtimeTheme = {
+    ...runtimeTheme,
+    colors,
+    blendModes
+  };
+}
+function setRuntimePalette(palette, paletteBlendModes = DEFAULT_PRISMATIC_PALETTE_BLEND_MODES) {
+  runtimeTheme = {
+    palette,
+    paletteBlendModes,
+    colors: deriveThemeFromPalette(palette),
+    blendModes: deriveBlendModesFromPalette(paletteBlendModes)
+  };
+}
+function getRuntimeTheme() {
+  return runtimeTheme.colors;
+}
+function getRuntimeThemeBlendModes() {
+  return runtimeTheme.blendModes;
+}
+function getRuntimePalette() {
+  return runtimeTheme.palette;
+}
+var PRISMATIC_SURFACE_FRAME_STYLE = {
+  backgroundImage: "linear-gradient(90deg, var(--prismatic-surface) 0%, var(--prismatic-surface) 100%), linear-gradient(90deg, var(--prismatic-border-subtle) 0%, var(--prismatic-border-subtle) 100%)"
+};
+
 // src/config.ts
 var DEFAULT_PRISMATIC_CONFIG = {
   workspace: {
@@ -41,10 +412,15 @@ var DEFAULT_PRISMATIC_CONFIG = {
     defaultSliderColumns: 1,
     sliderItemHeight: 70,
     imageDesignSize: 436
-  }
+  },
+  palette: DEFAULT_PRISMATIC_PALETTE,
+  paletteBlendModes: DEFAULT_PRISMATIC_PALETTE_BLEND_MODES,
+  theme: DEFAULT_PRISMATIC_THEME,
+  themeBlendModes: DEFAULT_PRISMATIC_THEME_BLEND_MODES
 };
 function resolvePrismaticConfig(config) {
   const excluded = config?.workspace?.snapExcludedPanelIds ?? [...DEFAULT_PRISMATIC_CONFIG.workspace.snapExcludedPanelIds];
+  const { palette, paletteBlendModes, colors, blendModes } = normalizeThemeInput(config?.theme);
   return {
     workspace: {
       ...DEFAULT_PRISMATIC_CONFIG.workspace,
@@ -62,12 +438,18 @@ function resolvePrismaticConfig(config) {
     layout: {
       ...DEFAULT_PRISMATIC_CONFIG.layout,
       ...config?.layout
-    }
+    },
+    palette,
+    paletteBlendModes,
+    theme: colors,
+    themeBlendModes: blendModes
   };
 }
 var runtimeConfig = DEFAULT_PRISMATIC_CONFIG;
 function setRuntimeConfig(config) {
   runtimeConfig = config;
+  setRuntimePalette(config.palette, config.paletteBlendModes);
+  setRuntimeTheme(config.theme, config.themeBlendModes);
 }
 function getRuntimeConfig() {
   return runtimeConfig;
@@ -287,6 +669,13 @@ function PrismaticProvider({
   children
 }) {
   const resolvedConfig = react.useMemo(() => resolvePrismaticConfig(config), [config]);
+  const themeStyle = react.useMemo(
+    () => prismaticThemeToCssProperties(
+      resolvedConfig.theme,
+      resolvedConfig.themeBlendModes
+    ),
+    [resolvedConfig.theme, resolvedConfig.themeBlendModes]
+  );
   const store = react.useMemo(
     () => createPrismaticStore(storeInit),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -295,7 +684,21 @@ function PrismaticProvider({
   react.useEffect(() => {
     setRuntimeConfig(resolvedConfig);
   }, [resolvedConfig]);
-  return /* @__PURE__ */ jsxRuntime.jsx(PrismaticStoreContext.Provider, { value: store, children });
+  react.useEffect(() => {
+    const root = document.documentElement;
+    const previous = /* @__PURE__ */ new Map();
+    for (const [cssVar, value] of Object.entries(themeStyle)) {
+      previous.set(cssVar, root.style.getPropertyValue(cssVar));
+      root.style.setProperty(cssVar, value);
+    }
+    return () => {
+      for (const [cssVar, value] of previous) {
+        if (value) root.style.setProperty(cssVar, value);
+        else root.style.removeProperty(cssVar);
+      }
+    };
+  }, [themeStyle]);
+  return /* @__PURE__ */ jsxRuntime.jsx(PrismaticStoreContext.Provider, { value: store, children: /* @__PURE__ */ jsxRuntime.jsx("div", { className: "prismatic-root contents", style: themeStyle, children }) });
 }
 function usePrismaticStore() {
   const store = react.useContext(PrismaticStoreContext);
@@ -1478,12 +1881,12 @@ var CreativeCanvas = react.forwardRef(
           {
             ref: containerRef,
             className: [
-              "inline-flex p-1 rounded-[calc(var(--radius)*2+4px)] [&_canvas]:block [&_canvas]:max-h-none [&_canvas]:max-w-none [&_canvas]:rounded-[calc(var(--radius)*2)]",
+              "prismatic-surface-frame inline-flex p-1 rounded-[calc(var(--radius)*2+4px)] [&_canvas]:block [&_canvas]:max-h-none [&_canvas]:max-w-none [&_canvas]:rounded-[calc(var(--radius)*2)]",
               workspaceMode ? "pointer-events-auto cursor-grab active:cursor-grabbing" : "pointer-events-none"
             ].join(" "),
             style: {
               transformOrigin: "center center",
-              backgroundImage: "linear-gradient(90deg, rgb(36, 35, 38) 0%, rgb(36, 35, 38) 100%), linear-gradient(90deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.1) 100%)"
+              ...PRISMATIC_SURFACE_FRAME_STYLE
             },
             onPointerDown: handlePointerDown,
             onPointerMove: handlePointerMove,
@@ -1625,7 +2028,7 @@ function WorkspacePanel({ id, children, className = "" }) {
   };
   const displayPos = dragPos ?? position;
   const dragOffset = dragging ? { x: displayPos.x - position.x, y: displayPos.y - position.y } : { x: 0, y: 0 };
-  const outlineClass = workspaceMode ? snapFlashing ? "outline outline-2 outline-white" : dragging ? "outline outline-2 outline-white" : hovered ? "outline outline-1 outline-white/50" : "" : "";
+  const outlineClass = workspaceMode ? snapFlashing ? "outline outline-2 outline-[var(--prismatic-accent-stroke)]" : dragging ? "outline outline-2 outline-[var(--prismatic-accent-stroke)]" : hovered ? "outline outline-1 outline-[var(--prismatic-border-subtle)]" : "" : "";
   return /* @__PURE__ */ jsxRuntime.jsx(WorkspacePanelContext.Provider, { value: { id, hovered }, children: /* @__PURE__ */ jsxRuntime.jsx(
     "div",
     {
@@ -1894,18 +2297,10 @@ function WorkspaceShell({
   children,
   showDebugOverlay = true
 }) {
-  const useStore = usePrismaticStore();
-  const workspaceMode = useStore((s) => s.workspaceMode);
-  return /* @__PURE__ */ jsxRuntime.jsxs(
-    "div",
-    {
-      className: `pointer-events-none fixed inset-0 ${workspaceMode ? "z-30" : "z-10"}`,
-      children: [
-        children,
-        showDebugOverlay && /* @__PURE__ */ jsxRuntime.jsx(WorkspaceDebugOverlay, {})
-      ]
-    }
-  );
+  return /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "pointer-events-none fixed inset-0 z-30", children: [
+    children,
+    showDebugOverlay && /* @__PURE__ */ jsxRuntime.jsx(WorkspaceDebugOverlay, {})
+  ] });
 }
 
 // src/workspace/shortcutsLayout.ts
@@ -1930,11 +2325,16 @@ function isWithinWorkspace(pos, size, viewport) {
   return pos.x >= margin && pos.y >= margin && pos.x + size.width <= viewport.width - margin && pos.y + size.height <= viewport.height - margin;
 }
 function getObstacleRects(panelId, positions, sizes, dragDebug) {
-  return Object.keys(positions).filter((id) => id !== panelId).map((id) => {
-    const pos = dragDebug?.id === id ? dragDebug.snapped : positions[id];
+  const rects = [];
+  for (const id of Object.keys(positions)) {
+    if (id === panelId) continue;
     const size = sizes[id];
-    return { x: pos.x, y: pos.y, width: size.width, height: size.height };
-  });
+    if (!size) continue;
+    const pos = dragDebug?.id === id ? dragDebug.snapped : positions[id];
+    if (!pos) continue;
+    rects.push({ x: pos.x, y: pos.y, width: size.width, height: size.height });
+  }
+  return rects;
 }
 function isPositionClear(pos, size, obstacles, viewport) {
   const candidate = { ...pos, ...size };
@@ -2295,7 +2695,7 @@ function FloatingHelp({
           "span",
           {
             ref: anchorRef,
-            className: `${TEXT_CLASS} cursor-default text-[rgba(255,255,255,0.9)] transition-colors ${hovered ? "text-white" : ""}`,
+            className: `${TEXT_CLASS} prismatic-text-primary cursor-default transition-opacity ${hovered ? "opacity-100" : "opacity-90"}`,
             "aria-label": ariaLabel,
             children: "?"
           }
@@ -2308,7 +2708,7 @@ function FloatingHelp({
         {
           ref: tooltipRef,
           role: "tooltip",
-          className: "pointer-events-none fixed z-[60] w-[200px] rounded-2xl bg-black/75 px-3 py-2.5 lowercase text-white/90 shadow-lg backdrop-blur-sm transition-opacity duration-150",
+          className: "prismatic-bg-overlay prismatic-text-primary pointer-events-none fixed z-[60] w-[200px] rounded-2xl px-3 py-2.5 lowercase shadow-lg backdrop-blur-sm transition-opacity duration-150",
           style: {
             top: placement?.top ?? -9999,
             left: placement?.left ?? -9999,
@@ -2355,7 +2755,7 @@ function ImageSizeToolbar({ modules, onChange }) {
   return /* @__PURE__ */ jsxRuntime.jsx(
     "div",
     {
-      className: "workspace-controls flex items-center gap-0.5 rounded-full bg-black/75 p-0.5 text-white shadow-lg backdrop-blur-sm",
+      className: "workspace-controls prismatic-bg-overlay prismatic-text-primary flex items-center gap-0.5 rounded-full p-0.5 shadow-lg backdrop-blur-sm",
       role: "toolbar",
       "aria-label": "Preview size",
       children: allowed.map((count) => {
@@ -2369,7 +2769,7 @@ function ImageSizeToolbar({ modules, onChange }) {
             "aria-pressed": active,
             className: [
               "flex items-center gap-1 rounded-full px-2 py-1 text-[10px] lowercase transition-colors",
-              active ? "bg-white text-black" : "text-white/80 hover:bg-white/15 hover:text-white"
+              active ? "prismatic-bg-surface-active prismatic-text-on-active" : "prismatic-text-primary hover:prismatic-bg-border-subtle"
             ].join(" "),
             onPointerDown: (e) => e.stopPropagation(),
             onClick: () => onChange(count),
@@ -2475,10 +2875,10 @@ function ImagePanel({ children, panelId = "image" }) {
                 onPointerUp: finishResize,
                 onPointerCancel: finishResize,
                 "aria-label": "Resize preview",
-                children: /* @__PURE__ */ jsxRuntime.jsx("div", { className: "absolute right-0.5 bottom-0.5 size-2 rounded-sm border-r border-b border-white/70" })
+                children: /* @__PURE__ */ jsxRuntime.jsx("div", { className: "absolute right-0.5 bottom-0.5 size-2 rounded-sm border-r border-b border-[var(--prismatic-accent-stroke)] opacity-70" })
               }
             ),
-            workspaceMode && resizing && /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "workspace-controls pointer-events-none absolute bottom-1 left-1/2 z-30 -translate-x-1/2 rounded-full bg-black/70 px-2 py-0.5 text-[10px] text-white/90 lowercase backdrop-blur-sm", children: [
+            workspaceMode && resizing && /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "workspace-controls prismatic-bg-overlay prismatic-text-primary pointer-events-none absolute bottom-1 left-1/2 z-30 -translate-x-1/2 rounded-full px-2 py-0.5 text-[10px] lowercase backdrop-blur-sm", children: [
               panelSize.width,
               "px"
             ] })
@@ -2524,7 +2924,7 @@ function SliderColumnToolbar({ columnCount, onChange }) {
   return /* @__PURE__ */ jsxRuntime.jsx(
     "div",
     {
-      className: "workspace-controls flex items-center gap-0.5 rounded-full bg-black/75 p-0.5 text-white shadow-lg backdrop-blur-sm",
+      className: "workspace-controls prismatic-bg-overlay prismatic-text-primary flex items-center gap-0.5 rounded-full p-0.5 shadow-lg backdrop-blur-sm",
       role: "toolbar",
       "aria-label": "Slider columns",
       children: Array.from({ length: max - min + 1 }, (_, i) => i + min).map((count) => {
@@ -2537,7 +2937,7 @@ function SliderColumnToolbar({ columnCount, onChange }) {
             "aria-pressed": active,
             className: [
               "flex items-center gap-1 rounded-full px-2 py-1 text-[10px] lowercase transition-colors",
-              active ? "bg-white text-black" : "text-white/80 hover:bg-white/15 hover:text-white"
+              active ? "prismatic-bg-surface-active prismatic-text-on-active" : "prismatic-text-primary hover:prismatic-bg-border-subtle"
             ].join(" "),
             onPointerDown: (e) => e.stopPropagation(),
             onClick: () => onChange(count),
@@ -2666,10 +3066,10 @@ function SlidersPanel({ children, panelId = "sliders" }) {
                 onPointerUp: finishResize,
                 onPointerCancel: finishResize,
                 "aria-label": "Resize slider columns",
-                children: /* @__PURE__ */ jsxRuntime.jsx("div", { className: "absolute top-1/2 right-1 h-10 w-1 -translate-y-1/2 rounded-full bg-white/70" })
+                children: /* @__PURE__ */ jsxRuntime.jsx("div", { className: "absolute top-1/2 right-1 h-10 w-1 -translate-y-1/2 rounded-full bg-[var(--prismatic-accent-stroke)] opacity-70" })
               }
             ),
-            workspaceMode && resizing && /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "workspace-controls pointer-events-none absolute bottom-1 left-1/2 z-30 -translate-x-1/2 rounded-full bg-black/70 px-2 py-0.5 text-[10px] text-white/90 lowercase backdrop-blur-sm", children: [
+            workspaceMode && resizing && /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "workspace-controls prismatic-bg-overlay prismatic-text-primary pointer-events-none absolute bottom-1 left-1/2 z-30 -translate-x-1/2 rounded-full px-2 py-0.5 text-[10px] lowercase backdrop-blur-sm", children: [
               columnCount,
               " col \xB7 ",
               panelSize.width,
@@ -2681,32 +3081,95 @@ function SlidersPanel({ children, panelId = "sliders" }) {
     }
   );
 }
+var BUTTON_TEXT_LG = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] lowercase";
+var BUTTON_ELLIPSE_WIDTH = 274;
+var BUTTON_ELLIPSE_HEIGHT = 120;
+function ButtonEllipseVisual({
+  active,
+  children,
+  width = BUTTON_ELLIPSE_WIDTH,
+  height = BUTTON_ELLIPSE_HEIGHT,
+  className = ""
+}) {
+  return /* @__PURE__ */ jsxRuntime.jsxs(
+    "div",
+    {
+      className: `relative isolate flex items-center justify-center ${className}`,
+      style: { width, height },
+      children: [
+        /* @__PURE__ */ jsxRuntime.jsx(
+          "svg",
+          {
+            viewBox: `0 0 ${BUTTON_ELLIPSE_WIDTH} ${BUTTON_ELLIPSE_HEIGHT}`,
+            preserveAspectRatio: "none",
+            "aria-hidden": "true",
+            className: "pointer-events-none absolute inset-0 size-full",
+            children: /* @__PURE__ */ jsxRuntime.jsx(
+              "ellipse",
+              {
+                cx: "137",
+                cy: "60",
+                rx: "136",
+                ry: "59",
+                fill: active ? "var(--prismatic-surface-active)" : "transparent",
+                stroke: active ? "transparent" : "var(--prismatic-accent-stroke)",
+                strokeWidth: "1",
+                vectorEffect: "non-scaling-stroke"
+              }
+            )
+          }
+        ),
+        /* @__PURE__ */ jsxRuntime.jsx(
+          "span",
+          {
+            className: `relative z-[2] mix-blend-normal ${active ? "prismatic-text-on-active" : "prismatic-text-muted"} ${BUTTON_TEXT_LG}`,
+            children
+          }
+        )
+      ]
+    }
+  );
+}
 function Button({
   children,
-  variant = "save",
-  saveButtonBg = 'url("/assets/save-button-bg.svg")',
+  width = BUTTON_ELLIPSE_WIDTH,
+  height = BUTTON_ELLIPSE_HEIGHT,
   className = "",
   type = "button",
+  disabled,
+  onMouseEnter,
+  onMouseLeave,
+  onFocus,
+  onBlur,
   ...rest
 }) {
-  const size = variant === "save" ? "h-[113px] w-[216px] rounded-[var(--radius)]" : "h-[120px] w-[194px] rounded-[var(--radius)]";
+  const [isActive, setIsActive] = react.useState(false);
+  const active = !disabled && isActive;
   return /* @__PURE__ */ jsxRuntime.jsx(
     "button",
     {
       type,
-      className: `group relative flex cursor-pointer select-none items-center justify-center outline-none disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:outline-none ${size} ${className}`,
+      disabled,
+      className: `relative flex cursor-pointer select-none items-center justify-center outline-none disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:outline-none ${className}`,
+      style: { width, height },
+      onMouseEnter: (e) => {
+        if (!disabled) setIsActive(true);
+        onMouseEnter?.(e);
+      },
+      onMouseLeave: (e) => {
+        setIsActive(false);
+        onMouseLeave?.(e);
+      },
+      onFocus: (e) => {
+        if (!disabled) setIsActive(true);
+        onFocus?.(e);
+      },
+      onBlur: (e) => {
+        setIsActive(false);
+        onBlur?.(e);
+      },
       ...rest,
-      children: /* @__PURE__ */ jsxRuntime.jsxs("span", { className: "absolute inset-0 flex items-center justify-center mix-blend-difference transform-gpu transition-transform duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform group-hover:scale-[1.02] group-active:scale-[0.98] group-disabled:scale-100", children: [
-        variant === "save" && /* @__PURE__ */ jsxRuntime.jsx(
-          "span",
-          {
-            "aria-hidden": true,
-            className: "pointer-events-none absolute inset-0 bg-contain bg-center bg-no-repeat",
-            style: { backgroundImage: saveButtonBg }
-          }
-        ),
-        /* @__PURE__ */ jsxRuntime.jsx("span", { className: "relative z-[1] text-center font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] text-black lowercase", children })
-      ] })
+      children: /* @__PURE__ */ jsxRuntime.jsx(ButtonEllipseVisual, { active, width, height, children })
     }
   );
 }
@@ -2717,9 +3180,6 @@ function snapToStep(value, min, step) {
   const steps = Math.round((value - min) / step);
   return min + steps * step;
 }
-var outerBgStyle = {
-  backgroundImage: "linear-gradient(90deg, rgb(36, 35, 38) 0%, rgb(36, 35, 38) 100%), linear-gradient(90deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.1) 100%)"
-};
 var ROW_H = 28;
 var INNER_STACK_H = ROW_H + 4 + ROW_H;
 var OUTER_H = 70;
@@ -2857,8 +3317,13 @@ function Slider({
   return /* @__PURE__ */ jsxRuntime.jsxs(
     "div",
     {
-      className: "relative box-border flex w-full flex-col justify-center overflow-hidden rounded-[var(--radius)] p-1",
-      style: { ...outerBgStyle, height: OUTER_H, minHeight: OUTER_H, maxHeight: OUTER_H },
+      className: "prismatic-surface-frame relative box-border flex w-full flex-col justify-center overflow-hidden rounded-[var(--radius)] p-1",
+      style: {
+        ...PRISMATIC_SURFACE_FRAME_STYLE,
+        height: OUTER_H,
+        minHeight: OUTER_H,
+        maxHeight: OUTER_H
+      },
       onPointerEnter: () => setHovered(true),
       onPointerLeave: () => setHovered(false),
       children: [
@@ -2872,7 +3337,7 @@ function Slider({
             "aria-valuenow": value,
             "aria-label": label,
             tabIndex: 0,
-            className: `absolute inset-0 z-10 touch-none select-none rounded-[var(--radius)] outline-none focus-visible:ring-2 focus-visible:ring-white/30 ${isToggle ? "cursor-pointer" : "cursor-ew-resize"}`,
+            className: `absolute inset-0 z-10 touch-none select-none rounded-[var(--radius)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--prismatic-border-subtle)] ${isToggle ? "cursor-pointer" : "cursor-ew-resize"}`,
             onPointerDown,
             onPointerMove,
             onPointerUp,
@@ -2915,7 +3380,7 @@ function Slider({
                           /* @__PURE__ */ jsxRuntime.jsx(
                             "div",
                             {
-                              className: `pointer-events-none absolute inset-y-0 left-0 rounded-[var(--radius-inner)] ${showRange ? "bg-transparent" : "bg-[#313034]"}`,
+                              className: `pointer-events-none absolute inset-y-0 left-0 rounded-[var(--radius-inner)] ${showRange ? "bg-transparent" : "prismatic-bg-surface-muted"}`,
                               style: {
                                 width: pillWidthStyle.width,
                                 minWidth: pillWidthStyle.minWidth
@@ -2939,7 +3404,7 @@ function Slider({
                               )
                             }
                           ),
-                          /* @__PURE__ */ jsxRuntime.jsx("div", { className: "relative z-[1] flex w-full min-w-0 items-center pl-[18px] pr-3", children: /* @__PURE__ */ jsxRuntime.jsx("p", { className: "min-w-0 truncate font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] text-[rgba(255,255,255,0.9)] lowercase", children: label }) })
+                          /* @__PURE__ */ jsxRuntime.jsx("div", { className: "relative z-[1] flex w-full min-w-0 items-center pl-[18px] pr-3", children: /* @__PURE__ */ jsxRuntime.jsx("p", { className: "min-w-0 truncate font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] prismatic-text-primary lowercase", children: label }) })
                         ]
                       }
                     ),
@@ -2954,7 +3419,7 @@ function Slider({
                             ref: valueInputRef,
                             value: draftValue,
                             inputMode: "decimal",
-                            className: "w-[120px] bg-transparent text-right font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] text-white tabular-nums outline-none",
+                            className: "w-[120px] bg-transparent text-right font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] prismatic-text-primary tabular-nums outline-none",
                             onChange: (e) => setDraftValue(e.target.value),
                             onPointerDown: (e) => e.stopPropagation(),
                             onClick: (e) => e.stopPropagation(),
@@ -2974,7 +3439,7 @@ function Slider({
                           "button",
                           {
                             type: "button",
-                            className: "cursor-text text-right font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] text-white tabular-nums",
+                            className: "cursor-text text-right font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] prismatic-text-primary tabular-nums",
                             onPointerDown: (e) => e.stopPropagation(),
                             onClick: (e) => {
                               e.stopPropagation();
@@ -3005,7 +3470,7 @@ function Slider({
                       /* @__PURE__ */ jsxRuntime.jsx(
                         "div",
                         {
-                          className: "pointer-events-none absolute inset-y-0 left-0 overflow-hidden rounded-[var(--radius-inner-sm)] bg-[#313034] backdrop-blur-[14.649px] [corner-shape:round]",
+                          className: "prismatic-bg-surface-muted pointer-events-none absolute inset-y-0 left-0 overflow-hidden rounded-[var(--radius-inner-sm)] backdrop-blur-[14.649px] [corner-shape:round]",
                           style: {
                             width: pillWidthStyle.width,
                             minWidth: pillWidthStyle.minWidth
@@ -3022,14 +3487,14 @@ function Slider({
                           ) }) }) }) }) })
                         }
                       ),
-                      /* @__PURE__ */ jsxRuntime.jsx("div", { className: "relative z-[1] flex w-full min-w-0 items-center pl-[18px] pr-3", children: /* @__PURE__ */ jsxRuntime.jsx("p", { className: "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[12px] leading-[1.1] tracking-[-0.24px] text-[rgba(255,255,255,0.9)] tabular-nums lowercase", children: minLabel }) })
+                      /* @__PURE__ */ jsxRuntime.jsx("div", { className: "relative z-[1] flex w-full min-w-0 items-center pl-[18px] pr-3", children: /* @__PURE__ */ jsxRuntime.jsx("p", { className: "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[12px] leading-[1.1] tracking-[-0.24px] prismatic-text-primary tabular-nums lowercase", children: minLabel }) })
                     ] }) }),
                     /* @__PURE__ */ jsxRuntime.jsx(
                       "div",
                       {
                         className: "pointer-events-none flex shrink-0 items-center justify-end pl-2",
                         style: bottomRowHeightStyle,
-                        children: /* @__PURE__ */ jsxRuntime.jsx("p", { className: "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[12px] leading-[1.1] tracking-[-0.24px] text-white tabular-nums lowercase", children: maxLabel })
+                        children: /* @__PURE__ */ jsxRuntime.jsx("p", { className: "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[12px] leading-[1.1] tracking-[-0.24px] prismatic-text-primary tabular-nums lowercase", children: maxLabel })
                       }
                     )
                   ]
@@ -3045,7 +3510,7 @@ function Slider({
 var EXPANDED_W = "304.012px";
 var TEXT_CLASS2 = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[17.897px] leading-[1.1] tracking-[-0.3579px] text-center whitespace-nowrap";
 function RadioRow({ label, isActive, onClick }) {
-  const bg = isActive ? "bg-[#e1e1e1] hover:bg-[rgba(225,225,225,0.5)]" : "bg-[#313034]";
+  const bg = isActive ? "prismatic-bg-surface-active hover:opacity-80" : "prismatic-bg-surface-muted";
   return /* @__PURE__ */ jsxRuntime.jsx(
     "button",
     {
@@ -3055,7 +3520,13 @@ function RadioRow({ label, isActive, onClick }) {
         minWidth: isActive ? EXPANDED_W : void 0
       },
       className: `group/radio flex h-9 min-w-0 cursor-pointer items-center px-2.5 outline-none transition-[min-width,background-color] duration-200 ease-out hover:min-w-[304.012px] ${bg}`,
-      children: /* @__PURE__ */ jsxRuntime.jsx("span", { className: `${TEXT_CLASS2} ${isActive ? "text-black" : "text-white mix-blend-difference"}`, children: label })
+      children: /* @__PURE__ */ jsxRuntime.jsx(
+        "span",
+        {
+          className: `${TEXT_CLASS2} ${isActive ? "prismatic-text-on-active" : "prismatic-text-primary"}`,
+          children: label
+        }
+      )
     }
   );
 }
@@ -3082,7 +3553,6 @@ function Radio({
     `${label}-${i}`
   )) });
 }
-var TEXT_LG = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] lowercase";
 var TEXT_SM = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[12px] leading-[1.1] tracking-[-0.24px] lowercase";
 function ImageComponent({
   src,
@@ -3159,7 +3629,7 @@ function ImageComponent({
                 "div",
                 {
                   className: [
-                    "flex w-full max-w-[274px] flex-col justify-center rounded-[var(--radius)] border border-solid border-white bg-[rgba(212,212,212,0.2)] pl-[18px] pr-[12px] text-[rgba(212,212,212,0.9)] backdrop-blur-[10px] transition-[background-color,border-color] duration-200 group-hover:border-transparent group-hover:bg-[rgba(255,255,255,0.5)] group-hover:text-[rgba(255,255,255,0.9)]",
+                    "prismatic-border-accent prismatic-bg-image-meta flex w-full max-w-[274px] flex-col justify-center rounded-[var(--radius)] border border-solid pl-[18px] pr-[12px] prismatic-text-muted backdrop-blur-[10px] transition-[background-color,border-color,color] duration-200 group-hover:border-transparent group-hover:prismatic-bg-image-meta-hover group-hover:prismatic-text-primary",
                     metrics.showFileSize ? "gap-2 py-3" : "py-2.5"
                   ].join(" "),
                   style: {
@@ -3173,7 +3643,7 @@ function ImageComponent({
                         className: [
                           "line-clamp-2",
                           metrics.compactFilename ? "max-h-[28px]" : "max-h-[44px]",
-                          metrics.compactFilename ? TEXT_SM : TEXT_LG
+                          metrics.compactFilename ? TEXT_SM : BUTTON_TEXT_LG
                         ].join(" "),
                         children: shortName
                       }
@@ -3185,45 +3655,13 @@ function ImageComponent({
                   ]
                 }
               ),
-              /* @__PURE__ */ jsxRuntime.jsxs(
-                "div",
+              /* @__PURE__ */ jsxRuntime.jsx(
+                ButtonEllipseVisual,
                 {
-                  className: "relative flex w-full max-w-[274px] items-center justify-center",
-                  style: {
-                    width: metrics.metaWidth,
-                    height: metrics.replaceHeight
-                  },
-                  children: [
-                    /* @__PURE__ */ jsxRuntime.jsx(
-                      "svg",
-                      {
-                        viewBox: "0 0 274 120",
-                        preserveAspectRatio: "none",
-                        "aria-hidden": "true",
-                        className: "absolute inset-0 size-full",
-                        children: /* @__PURE__ */ jsxRuntime.jsx(
-                          "ellipse",
-                          {
-                            cx: "137",
-                            cy: "60",
-                            rx: "136",
-                            ry: "59",
-                            fill: isActive ? "white" : "transparent",
-                            stroke: isActive ? "transparent" : "white",
-                            strokeWidth: "1",
-                            vectorEffect: "non-scaling-stroke"
-                          }
-                        )
-                      }
-                    ),
-                    /* @__PURE__ */ jsxRuntime.jsx(
-                      "span",
-                      {
-                        className: `relative z-[1] text-[rgba(212,212,212,0.9)] ${TEXT_LG}`,
-                        children: "replace"
-                      }
-                    )
-                  ]
+                  active: isActive,
+                  width: metrics.metaWidth,
+                  height: metrics.replaceHeight,
+                  children: "replace"
                 }
               )
             ]
@@ -3276,10 +3714,18 @@ function mergePanelSizes(sizes, overrides) {
   return merged;
 }
 
+exports.BUTTON_ELLIPSE_HEIGHT = BUTTON_ELLIPSE_HEIGHT;
+exports.BUTTON_ELLIPSE_WIDTH = BUTTON_ELLIPSE_WIDTH;
+exports.BUTTON_TEXT_LG = BUTTON_TEXT_LG;
 exports.Button = Button;
+exports.ButtonEllipseVisual = ButtonEllipseVisual;
 exports.CreativeCanvas = CreativeCanvas;
 exports.DEFAULT_IMAGE_MODULES = DEFAULT_IMAGE_MODULES;
 exports.DEFAULT_PRISMATIC_CONFIG = DEFAULT_PRISMATIC_CONFIG;
+exports.DEFAULT_PRISMATIC_PALETTE = DEFAULT_PRISMATIC_PALETTE;
+exports.DEFAULT_PRISMATIC_PALETTE_BLEND_MODES = DEFAULT_PRISMATIC_PALETTE_BLEND_MODES;
+exports.DEFAULT_PRISMATIC_THEME = DEFAULT_PRISMATIC_THEME;
+exports.DEFAULT_PRISMATIC_THEME_BLEND_MODES = DEFAULT_PRISMATIC_THEME_BLEND_MODES;
 exports.DEFAULT_SLIDER_COLUMNS = DEFAULT_SLIDER_COLUMNS;
 exports.FloatingHelp = FloatingHelp;
 exports.IMAGE_DESIGN_SIZE = IMAGE_DESIGN_SIZE;
@@ -3288,6 +3734,11 @@ exports.ImageComponent = ImageComponent;
 exports.ImagePanel = ImagePanel;
 exports.LAYOUT_GAP = LAYOUT_GAP;
 exports.MODULE = MODULE;
+exports.PRISMATIC_BLEND_MODES = PRISMATIC_BLEND_MODES;
+exports.PRISMATIC_PALETTE_TOKEN_KEYS = PRISMATIC_PALETTE_TOKEN_KEYS;
+exports.PRISMATIC_PALETTE_TOKEN_LABELS = PRISMATIC_PALETTE_TOKEN_LABELS;
+exports.PRISMATIC_THEME_CSS_VARS = PRISMATIC_THEME_CSS_VARS;
+exports.PRISMATIC_THEME_PRESETS = PRISMATIC_THEME_PRESETS;
 exports.PrismaticProvider = PrismaticProvider;
 exports.Radio = Radio;
 exports.SLIDER_COUNT = SLIDER_COUNT;
@@ -3307,13 +3758,18 @@ exports.collectWorkspaceSnapLines = collectWorkspaceSnapLines;
 exports.columnCountFromWidth = columnCountFromWidth;
 exports.createGridLayout = createGridLayout;
 exports.createPrismaticStore = createPrismaticStore;
+exports.deriveThemeFromPalette = deriveThemeFromPalette;
 exports.findAutoPlacedPosition = findAutoPlacedPosition;
 exports.findShortcutsPosition = findShortcutsPosition;
+exports.formatPrismaticThemeCss = formatPrismaticThemeCss;
 exports.getActiveCanvasSnapLines = getActiveCanvasSnapLines;
 exports.getActiveDistributionGuides = getActiveDistributionGuides;
 exports.getActiveVisualSnapLines = getActiveVisualSnapLines;
 exports.getCanvasScreenRect = getCanvasScreenRect;
 exports.getCanvasSnapTargetIds = getCanvasSnapTargetIds;
+exports.getRuntimePalette = getRuntimePalette;
+exports.getRuntimeTheme = getRuntimeTheme;
+exports.getRuntimeThemeBlendModes = getRuntimeThemeBlendModes;
 exports.getSnapTargetIds = getSnapTargetIds;
 exports.getWindowMarginRect = getWindowMarginRect;
 exports.imageComponentMetrics = imageComponentMetrics;
@@ -3327,7 +3783,11 @@ exports.layoutGap = layoutGap;
 exports.mergePanelSizes = mergePanelSizes;
 exports.moduleSize = moduleSize;
 exports.moduleSpanPx = moduleSpanPx;
+exports.normalizeThemeInput = normalizeThemeInput;
+exports.parseColor = parseColor;
 exports.resolvePrismaticConfig = resolvePrismaticConfig;
+exports.resolvePrismaticPalette = resolvePrismaticPalette;
+exports.resolvePrismaticTheme = resolvePrismaticTheme;
 exports.samePanelIds = samePanelIds;
 exports.sameUiGroupIds = sameUiGroupIds;
 exports.sliderColumnWidthPx = sliderColumnWidthPx;

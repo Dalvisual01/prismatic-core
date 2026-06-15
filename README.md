@@ -72,6 +72,16 @@ export default function App() {
 }
 ```
 
+## Component playground
+
+Run the local UI playground to add components, tweak the theme, and test workspace mode:
+
+```bash
+npm run dev:playground
+```
+
+Opens at `http://localhost:5173` with a component picker, live theme controls, and workspace shortcuts (`w`, `r`).
+
 ## Configuration
 
 Create `prismatic.config.ts` in your project:
@@ -97,8 +107,90 @@ export const prismaticConfig: PrismaticConfig = {
     toggleWorkspace: "w",
     resetCanvasView: "r",
   },
+  theme: {
+    palette: {
+      background: "#141316",
+      surface: "rgb(36, 35, 38)",
+      foreground: "#ffffff",
+      accent: "#e1e1e1",
+      onAccent: "#000000",
+      muted: "#313034",
+    },
+    paletteBlendModes: {
+      foreground: "difference",
+    },
+  },
 }
 ```
+
+## Theming
+
+You configure **6 palette colours**. Prismatic derives every UI token from them (text opacities, borders, overlays, etc.).
+
+| Palette | Role |
+|---------|------|
+| `background` | App + canvas base |
+| `surface` | Control chrome (sliders, frames) |
+| `foreground` | Text, strokes, borders |
+| `accent` | Active / hover fill |
+| `onAccent` | Text on accent fills (button hover, active radio) |
+| `muted` | Slider pill fill, inactive radio rows |
+
+Each palette slot has a `mix-blend-mode`. It applies to **fills and strokes** via `prismatic-bg-*` / `prismatic-border-*` utilities — text always blends `normal` for readability.
+
+Use `npm run dev:playground` to tune the palette, then **copy theme css** — you get the full derived `:root` block ready to paste into your project.
+
+Legacy explicit token overrides still work: `theme: { colors: { textPrimary: "..." } }`.
+
+### App CSS
+
+Import the library stylesheet and wire your page to the same variables:
+
+```css
+@import "tailwindcss";
+@import "@prismatic/core/style.css";
+
+body {
+  background: var(--prismatic-app-bg);
+  color: var(--prismatic-text-primary);
+}
+```
+
+### p5 sketches
+
+Read the resolved theme inside your sketch factory:
+
+```ts
+import { getRuntimeTheme, parseColor } from "@prismatic/core"
+
+p.draw = () => {
+  const { r, g, b } = parseColor(getRuntimeTheme().canvasBackground)
+  p.background(r, g, b)
+}
+```
+
+### Export CSS
+
+Generate the same `:root` block in code:
+
+```ts
+import { formatPrismaticThemeCss, resolvePrismaticConfig } from "@prismatic/core"
+
+const { theme, themeBlendModes } = resolvePrismaticConfig(prismaticConfig)
+const css = formatPrismaticThemeCss(theme, themeBlendModes)
+```
+
+### Presets
+
+```ts
+import { PRISMATIC_THEME_PRESETS, type PrismaticConfig } from "@prismatic/core"
+
+export const prismaticConfig: PrismaticConfig = {
+  theme: PRISMATIC_THEME_PRESETS.find((p) => p.id === "sand")!.theme,
+}
+```
+
+Paste copied CSS from the playground into your stylesheet, or pass `palette` in config and let `PrismaticProvider` apply it at runtime.
 
 ## Canvas sketch factory
 
@@ -138,7 +230,6 @@ Optional asset props for app-specific SVGs:
 
 ```tsx
 <Slider lineTopSrc="/assets/slider-line-top.svg" lineBottomSrc="..." />
-<Button saveButtonBg='url("/assets/save-button-bg.svg")' />
 ```
 
 ## Layout utilities

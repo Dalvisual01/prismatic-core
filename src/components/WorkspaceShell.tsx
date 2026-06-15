@@ -1,5 +1,4 @@
 import type { ReactNode } from "react"
-import { usePrismaticStore } from "../hooks/usePrismaticStore"
 import { WorkspaceDebugOverlay } from "./WorkspaceDebugOverlay"
 
 export type WorkspaceShellProps = {
@@ -11,13 +10,8 @@ export function WorkspaceShell({
   children,
   showDebugOverlay = true,
 }: WorkspaceShellProps) {
-  const useStore = usePrismaticStore()
-  const workspaceMode = useStore((s) => s.workspaceMode)
-
   return (
-    <div
-      className={`pointer-events-none fixed inset-0 ${workspaceMode ? "z-30" : "z-10"}`}
-    >
+    <div className="pointer-events-none fixed inset-0 z-30">
       {children}
       {showDebugOverlay && <WorkspaceDebugOverlay />}
     </div>

@@ -3,6 +3,94 @@
    @source "../node_modules/@prismatic/core/dist/index.js";
    (or the path to this package's source when using file: dependencies) */
 
+:root {
+  --prismatic-app-bg: #141316;
+  --prismatic-app-bg-blend-mode: normal;
+  --prismatic-canvas-bg: rgb(20, 19, 22);
+  --prismatic-canvas-bg-blend-mode: normal;
+  --prismatic-surface: rgb(36, 35, 38);
+  --prismatic-surface-blend-mode: normal;
+  --prismatic-surface-muted: #313034;
+  --prismatic-surface-muted-blend-mode: normal;
+  --prismatic-surface-active: #e1e1e1;
+  --prismatic-surface-active-blend-mode: normal;
+  --prismatic-border-subtle: rgba(255, 255, 255, 0.1);
+  --prismatic-border-subtle-blend-mode: normal;
+  --prismatic-text-primary: rgba(255, 255, 255, 0.9);
+  --prismatic-text-primary-blend-mode: normal;
+  --prismatic-text-muted: rgba(212, 212, 212, 0.9);
+  --prismatic-text-muted-blend-mode: normal;
+  --prismatic-text-on-active: #000000;
+  --prismatic-text-on-active-blend-mode: normal;
+  --prismatic-accent-stroke: #ffffff;
+  --prismatic-accent-stroke-blend-mode: normal;
+  --prismatic-overlay-bg: rgba(0, 0, 0, 0.75);
+  --prismatic-overlay-bg-blend-mode: normal;
+  --prismatic-grid-line: rgba(255, 255, 255, 0.05);
+  --prismatic-grid-line-blend-mode: normal;
+  --prismatic-image-meta-bg: rgba(212, 212, 212, 0.2);
+  --prismatic-image-meta-bg-blend-mode: normal;
+  --prismatic-image-meta-bg-hover: rgba(255, 255, 255, 0.5);
+  --prismatic-image-meta-bg-hover-blend-mode: normal;
+  --radius: 12px;
+}
+
+.prismatic-text-primary {
+  color: var(--prismatic-text-primary);
+}
+
+.prismatic-text-muted {
+  color: var(--prismatic-text-muted);
+}
+
+.prismatic-text-on-active {
+  color: var(--prismatic-text-on-active);
+}
+
+.prismatic-surface-frame {
+  mix-blend-mode: var(--prismatic-surface-blend-mode, normal);
+}
+
+.prismatic-bg-surface-muted {
+  background-color: var(--prismatic-surface-muted);
+  mix-blend-mode: var(--prismatic-surface-muted-blend-mode, normal);
+}
+
+.prismatic-bg-border-subtle {
+  background-color: var(--prismatic-border-subtle);
+  mix-blend-mode: var(--prismatic-border-subtle-blend-mode, normal);
+}
+
+.prismatic-bg-surface-active {
+  background-color: var(--prismatic-surface-active);
+  mix-blend-mode: var(--prismatic-surface-active-blend-mode, normal);
+}
+
+.prismatic-bg-overlay {
+  background-color: var(--prismatic-overlay-bg);
+  mix-blend-mode: var(--prismatic-overlay-bg-blend-mode, normal);
+}
+
+.prismatic-bg-image-meta {
+  background-color: var(--prismatic-image-meta-bg);
+  mix-blend-mode: var(--prismatic-image-meta-bg-blend-mode, normal);
+}
+
+.prismatic-bg-image-meta-hover {
+  background-color: var(--prismatic-image-meta-bg-hover);
+  mix-blend-mode: var(--prismatic-image-meta-bg-hover-blend-mode, normal);
+}
+
+.prismatic-border-accent {
+  border-color: var(--prismatic-accent-stroke);
+  mix-blend-mode: var(--prismatic-accent-stroke-blend-mode, normal);
+}
+
+.prismatic-border-subtle {
+  border-color: var(--prismatic-border-subtle);
+  mix-blend-mode: var(--prismatic-border-subtle-blend-mode, normal);
+}
+
 .workspace-controls {
   /* marker class for drag-exempt interactive controls */
 }

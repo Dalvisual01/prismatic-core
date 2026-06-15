@@ -189,11 +189,11 @@ export function WorkspacePanel({ id, children, className = "" }: WorkspacePanelP
 
   const outlineClass = workspaceMode
     ? snapFlashing
-      ? "outline outline-2 outline-white"
+      ? "outline outline-2 outline-[var(--prismatic-accent-stroke)]"
       : dragging
-        ? "outline outline-2 outline-white"
+        ? "outline outline-2 outline-[var(--prismatic-accent-stroke)]"
         : hovered
-          ? "outline outline-1 outline-white/50"
+          ? "outline outline-1 outline-[var(--prismatic-border-subtle)]"
           : ""
     : ""
 

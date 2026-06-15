@@ -60,13 +60,21 @@ function getObstacleRects(
   sizes: Record<PanelId, PanelSize>,
   dragDebug: PanelDragDebug | null,
 ): Rect[] {
-  return Object.keys(positions)
-    .filter((id) => id !== panelId)
-    .map((id) => {
-      const pos = dragDebug?.id === id ? dragDebug.snapped : positions[id]
-      const size = sizes[id]
-      return { x: pos.x, y: pos.y, width: size.width, height: size.height }
-    })
+  const rects: Rect[] = []
+
+  for (const id of Object.keys(positions)) {
+    if (id === panelId) continue
+
+    const size = sizes[id]
+    if (!size) continue
+
+    const pos = dragDebug?.id === id ? dragDebug.snapped : positions[id]
+    if (!pos) continue
+
+    rects.push({ x: pos.x, y: pos.y, width: size.width, height: size.height })
+  }
+
+  return rects
 }
 
 function isPositionClear(
