@@ -2,6 +2,7 @@
 export {
   DEFAULT_PRISMATIC_CONFIG,
   resolvePrismaticConfig,
+  type PrismaticColorMode,
   type PrismaticConfig,
   type PrismaticPalette,
   type PrismaticPaletteBlendModes,
@@ -17,6 +18,8 @@ export {
   DEFAULT_PRISMATIC_THEME,
   DEFAULT_PRISMATIC_THEME_BLEND_MODES,
   PRISMATIC_BLEND_MODES,
+  PRISMATIC_COLOR_MODES,
+  PRISMATIC_COLOR_MODE_THEMES,
   PRISMATIC_PALETTE_TOKEN_KEYS,
   PRISMATIC_PALETTE_TOKEN_LABELS,
   PRISMATIC_THEME_CSS_VARS,
@@ -73,7 +76,7 @@ export { WorkspaceDebugOverlay } from "./components/WorkspaceDebugOverlay"
 export { FloatingHelp } from "./components/FloatingHelp"
 
 // Panels
-export { ImagePanel } from "./components/panels/ImagePanel"
+export { ImagePanel, useImagePanelSize } from "./components/panels/ImagePanel"
 export { SlidersPanel } from "./components/panels/SlidersPanel"
 
 // UI primitives

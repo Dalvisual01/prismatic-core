@@ -107,44 +107,27 @@ export const prismaticConfig: PrismaticConfig = {
     toggleWorkspace: "w",
     resetCanvasView: "r",
   },
-  theme: {
-    palette: {
-      background: "#141316",
-      surface: "rgb(36, 35, 38)",
-      foreground: "#ffffff",
-      accent: "#e1e1e1",
-      onAccent: "#000000",
-      muted: "#313034",
-    },
-    paletteBlendModes: {
-      foreground: "difference",
-    },
-  },
+  colorMode: "default",
 }
 ```
 
 ## Theming
 
-You configure **6 palette colours**. Prismatic derives every UI token from them (text opacities, borders, overlays, etc.).
+Set `colorMode` on your config — two built-in looks are included:
 
-| Palette | Role |
-|---------|------|
-| `background` | App + canvas base |
-| `surface` | Control chrome (sliders, frames) |
-| `foreground` | Text, strokes, borders |
-| `accent` | Active / hover fill |
-| `onAccent` | Text on accent fills (button hover, active radio) |
-| `muted` | Slider pill fill, inactive radio rows |
+| Mode | Description |
+|------|-------------|
+| `default` | Dark UI (current look) |
+| `sand` | Light warm UI |
 
-Each palette slot has a `mix-blend-mode`. It applies to **fills and strokes** via `prismatic-bg-*` / `prismatic-border-*` utilities — text always blends `normal` for readability.
+```ts
+export const prismaticConfig: PrismaticConfig = {
+  colorMode: "sand",
+  // ...
+}
+```
 
-Use `npm run dev:playground` to tune the palette, then **copy theme css** — you get the full derived `:root` block ready to paste into your project.
-
-Legacy explicit token overrides still work: `theme: { colors: { textPrimary: "..." } }`.
-
-### App CSS
-
-Import the library stylesheet and wire your page to the same variables:
+Prismatic applies the palette as CSS custom properties automatically via `PrismaticProvider`. Import the stylesheet in your app:
 
 ```css
 @import "tailwindcss";
@@ -155,6 +138,10 @@ body {
   color: var(--prismatic-text-primary);
 }
 ```
+
+For advanced overrides, you can still pass `theme: { palette: { ... } }` — it takes precedence over `colorMode`.
+
+Legacy explicit token overrides also work: `theme: { colors: { textPrimary: "..." } }`.
 
 ### p5 sketches
 

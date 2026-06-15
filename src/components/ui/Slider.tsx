@@ -8,6 +8,14 @@ import {
 } from "react"
 import { PRISMATIC_SURFACE_FRAME_STYLE } from "../../theme/tokens"
 
+const DEFAULT_SLIDER_LINE_TOP = `data:image/svg+xml,${encodeURIComponent(
+  `<svg preserveAspectRatio="none" width="100%" height="100%" overflow="visible" style="display: block;" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><g opacity="1"><line x1="0.86003" y1="-0.86003" x2="17.1552" y2="-0.86003" stroke="white" style="mix-blend-mode:difference" stroke-width="1.72006" stroke-linecap="round"/></g></svg>`,
+)}`
+
+const DEFAULT_SLIDER_LINE_BOTTOM = `data:image/svg+xml,${encodeURIComponent(
+  `<svg preserveAspectRatio="none" width="100%" height="100%" overflow="visible" style="display: block;" viewBox="0 0 18.0153 1.72006" fill="none" xmlns="http://www.w3.org/2000/svg"><g><line x1="0.86003" y1="0.86003" x2="17.1552" y2="0.86003" stroke="white" style="mix-blend-mode:difference" stroke-width="1.72006" stroke-linecap="round"/></g></svg>`,
+)}`
+
 export type SliderProps = {
   label: string
   value: number
@@ -51,8 +59,8 @@ export function Slider({
   step = 0.01,
   displayValue,
   onChange,
-  lineTopSrc,
-  lineBottomSrc,
+  lineTopSrc = DEFAULT_SLIDER_LINE_TOP,
+  lineBottomSrc = DEFAULT_SLIDER_LINE_BOTTOM,
 }: SliderProps) {
   /** Measures the visual fill region width (left side). */
   const trackAreaRef = useRef<HTMLDivElement>(null)
@@ -198,7 +206,7 @@ export function Slider({
 
   return (
     <div
-      className="prismatic-surface-frame relative box-border flex w-full flex-col justify-center overflow-hidden rounded-[var(--radius)] p-1"
+      className="prismatic-surface-frame prismatic-squircle relative box-border flex w-full flex-col justify-center overflow-hidden rounded-[var(--radius)] p-1"
       style={{
         ...PRISMATIC_SURFACE_FRAME_STYLE,
         height: OUTER_H,
@@ -256,7 +264,7 @@ export function Slider({
           >
             {/* Fill pill (visual width) */}
             <div
-              className={`pointer-events-none absolute inset-y-0 left-0 rounded-[var(--radius-inner)] ${
+              className={`pointer-events-none absolute inset-y-0 left-0 rounded-[var(--radius-inner)] prismatic-squircle ${
                 showRange ? "bg-transparent" : "prismatic-bg-surface-muted"
               }`}
               style={{
@@ -349,7 +357,7 @@ export function Slider({
             <div className="relative flex min-h-0 flex-1 items-stretch" style={bottomRowHeightStyle}>
               {/* Fill pill (visual width) */}
               <div
-                className="prismatic-bg-surface-muted pointer-events-none absolute inset-y-0 left-0 overflow-hidden rounded-[var(--radius-inner-sm)] backdrop-blur-[14.649px] [corner-shape:round]"
+                className="prismatic-bg-surface-muted prismatic-squircle pointer-events-none absolute inset-y-0 left-0 overflow-hidden rounded-[var(--radius-inner-sm)] backdrop-blur-[14.649px] [corner-shape:round]"
                 style={{
                   width: pillWidthStyle.width,
                   minWidth: pillWidthStyle.minWidth,

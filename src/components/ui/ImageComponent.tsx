@@ -1,5 +1,6 @@
 import { useId, useRef, useState, type KeyboardEvent } from "react"
 import type { PreviewKind } from "../../canvas/types"
+import { useImagePanelSize } from "../panels/ImagePanel"
 import { imageComponentMetrics } from "../../workspace/imageLayout"
 import { BUTTON_TEXT_LG, ButtonEllipseVisual } from "./Button"
 
@@ -11,7 +12,8 @@ export type ImageComponentProps = {
   kind: PreviewKind
   fileName: string
   sizeKB: number
-  size: number
+  /** Required when used outside `ImagePanel`. Inside `ImagePanel`, size follows the panel. */
+  size?: number
   onReplace: (file: File) => void
 }
 
@@ -26,7 +28,12 @@ export function ImageComponent({
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const [isActive, setIsActive] = useState(false)
-  const metrics = imageComponentMetrics(size)
+  const panelSide = useImagePanelSize()
+  const resolvedSize = panelSide ?? size
+  if (resolvedSize == null || resolvedSize <= 0) {
+    throw new Error("ImageComponent requires `size` or an ImagePanel parent")
+  }
+  const metrics = imageComponentMetrics(resolvedSize)
 
   const shortName =
     fileName.length > 42 ? `${fileName.slice(0, 39)}…` : fileName
@@ -43,7 +50,7 @@ export function ImageComponent({
   return (
     <div
       className="group relative shrink-0 cursor-pointer rounded-[500px] outline-none [corner-shape:round]"
-      style={{ width: size, height: size }}
+      style={{ width: resolvedSize, height: resolvedSize }}
       role="button"
       tabIndex={0}
       aria-label="Replace source image or video"
@@ -86,7 +93,7 @@ export function ImageComponent({
       >
         <div
           className={[
-            "prismatic-border-accent prismatic-bg-image-meta flex w-full max-w-[274px] flex-col justify-center rounded-[var(--radius)] border border-solid pl-[18px] pr-[12px] prismatic-text-muted backdrop-blur-[10px] transition-[background-color,border-color,color] duration-200 group-hover:border-transparent group-hover:prismatic-bg-image-meta-hover group-hover:prismatic-text-primary",
+            "prismatic-border-accent prismatic-bg-image-meta prismatic-squircle flex w-full max-w-[274px] flex-col justify-center rounded-[var(--radius-inner)] border border-solid pl-[18px] pr-[12px] prismatic-text-muted backdrop-blur-[10px] transition-[background-color,border-color,color] duration-200 group-hover:border-transparent group-hover:prismatic-bg-image-meta-hover group-hover:prismatic-text-primary",
             metrics.showFileSize ? "gap-2 py-3" : "py-2.5",
           ].join(" ")}
           style={{

@@ -11,13 +11,12 @@ import {
   SlidersPanel,
   WorkspacePanel,
   WorkspaceShell,
-  imagePreviewSizePx,
   usePrismaticStore,
   type SketchFactory,
 } from "../src/index"
 import { playgroundSketch } from "./sketch"
 import { ThemeControls } from "./ThemeControls"
-import type { PrismaticThemeInput } from "../src/theme/tokens"
+import type { PrismaticColorMode } from "../src/theme/tokens"
 
 const PLACEHOLDER_IMAGE =
   "data:image/svg+xml," +
@@ -89,6 +88,24 @@ function PanelChrome({
   )
 }
 
+function ImagePreviewDemo({
+  imageSrc,
+  onImageReplace,
+}: {
+  imageSrc: string
+  onImageReplace: (file: File) => void
+}) {
+  return (
+    <ImageComponent
+      src={imageSrc}
+      kind="image"
+      fileName="gradient-sample.svg"
+      sizeKB={12}
+      onReplace={onImageReplace}
+    />
+  )
+}
+
 function PlaygroundPanelContent({
   panelId,
   kind,
@@ -147,46 +164,40 @@ function PlaygroundPanelContent({
       )
     case "image":
       return (
-        <PanelChrome title={label} onRemove={onRemove}>
-          <ImagePanel panelId={panelId}>
-            <ImageComponent
-              src={imageSrc}
-              kind="image"
-              fileName="gradient-sample.svg"
-              sizeKB={12}
-              size={imagePreviewSizePx(6)}
-              onReplace={onImageReplace}
-            />
-          </ImagePanel>
-        </PanelChrome>
+        <ImagePanel panelId={panelId}>
+          <ImagePreviewDemo
+            imageSrc={imageSrc}
+            onImageReplace={onImageReplace}
+          />
+        </ImagePanel>
       )
   }
 }
 
 export function App() {
-  const [theme, setTheme] = useState<PrismaticThemeInput>({})
+  const [colorMode, setColorMode] = useState<PrismaticColorMode>("default")
   const storeInit = useMemo(
     () => ({
       initialPositions: INITIAL_POSITIONS,
     }),
     [],
   )
-  const config = useMemo(() => ({ theme }), [theme])
+  const config = useMemo(() => ({ colorMode }), [colorMode])
 
   return (
     <PrismaticProvider config={config} storeInit={storeInit}>
       <CreativeCanvas createSketch={playgroundSketch as SketchFactory} />
-      <Playground theme={theme} onThemeChange={setTheme} />
+      <Playground colorMode={colorMode} onColorModeChange={setColorMode} />
     </PrismaticProvider>
   )
 }
 
 function Playground({
-  theme,
-  onThemeChange,
+  colorMode,
+  onColorModeChange,
 }: {
-  theme: PrismaticThemeInput
-  onThemeChange: (theme: PrismaticThemeInput) => void
+  colorMode: PrismaticColorMode
+  onColorModeChange: (colorMode: PrismaticColorMode) => void
 }) {
   const useStore = usePrismaticStore()
   const setUiGroupPosition = useStore((s) => s.setUiGroupPosition)
@@ -259,7 +270,7 @@ function Playground({
           <p className="mb-2 px-1 text-[10px] uppercase tracking-[0.12em] text-white/40">
             theme
           </p>
-          <ThemeControls theme={theme} onChange={onThemeChange} />
+          <ThemeControls colorMode={colorMode} onChange={onColorModeChange} />
         </div>
 
         <div className="border-t border-white/10 px-4 py-3 text-[10px] lowercase leading-relaxed text-white/45">

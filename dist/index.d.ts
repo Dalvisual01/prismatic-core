@@ -87,11 +87,15 @@ declare function normalizeThemeInput(theme?: Partial<PrismaticTheme> | Prismatic
 };
 declare function resolvePrismaticTheme(theme?: Partial<PrismaticTheme>): PrismaticTheme;
 declare function formatPrismaticThemeCss(colors: PrismaticTheme, blendModes?: PrismaticThemeBlendModes, palette?: PrismaticPalette, paletteBlendModes?: PrismaticPaletteBlendModes): string;
+type PrismaticColorMode = "default" | "sand";
+declare const PRISMATIC_COLOR_MODES: readonly ["default", "sand"];
+declare const PRISMATIC_COLOR_MODE_THEMES: Record<PrismaticColorMode, PrismaticThemeInput>;
 type PrismaticThemePreset = {
-    id: string;
+    id: PrismaticColorMode;
     label: string;
     theme: PrismaticThemeInput;
 };
+/** @deprecated Use `PRISMATIC_COLOR_MODES` and `colorMode` on `PrismaticConfig`. */
 declare const PRISMATIC_THEME_PRESETS: PrismaticThemePreset[];
 declare function getRuntimeTheme(): PrismaticTheme;
 declare function getRuntimeThemeBlendModes(): PrismaticThemeBlendModes;
@@ -131,7 +135,9 @@ type PrismaticConfig = {
         sliderItemHeight?: number;
         imageDesignSize?: number;
     };
-    /** Palette (preferred) or explicit token overrides — applied as CSS custom properties. */
+    /** Built-in colour mode. Use this in consumer projects instead of custom theme CSS. */
+    colorMode?: PrismaticColorMode;
+    /** Advanced palette or token overrides. Prefer `colorMode` for the built-in looks. */
     theme?: Partial<PrismaticTheme> | PrismaticThemeInput;
 };
 type ResolvedPrismaticConfig = {
@@ -141,6 +147,7 @@ type ResolvedPrismaticConfig = {
     canvas: Required<NonNullable<PrismaticConfig["canvas"]>>;
     shortcuts: Required<NonNullable<PrismaticConfig["shortcuts"]>>;
     layout: Required<NonNullable<PrismaticConfig["layout"]>>;
+    colorMode: PrismaticColorMode;
     palette: PrismaticPalette;
     paletteBlendModes: PrismaticPaletteBlendModes;
     theme: PrismaticTheme;
@@ -268,6 +275,8 @@ type FloatingHelpProps = {
 };
 declare function FloatingHelp({ id, fallbackPosition, tooltip, ariaLabel, }: FloatingHelpProps): react.JSX.Element;
 
+/** Pixel side length when `ImageComponent` is rendered inside `ImagePanel`. */
+declare function useImagePanelSize(): number | null;
 type ImagePanelProps = {
     children: ReactNode;
     panelId?: string;
@@ -327,7 +336,8 @@ type ImageComponentProps = {
     kind: PreviewKind;
     fileName: string;
     sizeKB: number;
-    size: number;
+    /** Required when used outside `ImagePanel`. Inside `ImagePanel`, size follows the panel. */
+    size?: number;
     onReplace: (file: File) => void;
 };
 declare function ImageComponent({ src, kind, fileName, sizeKB, size, onReplace, }: ImageComponentProps): react.JSX.Element;
@@ -456,4 +466,4 @@ declare function findAutoPlacedPosition(panelId: PanelId, current: PixelPosition
 /** @deprecated Use findAutoPlacedPosition */
 declare const findShortcutsPosition: typeof findAutoPlacedPosition;
 
-export { BUTTON_ELLIPSE_HEIGHT, BUTTON_ELLIPSE_WIDTH, BUTTON_TEXT_LG, Button, ButtonEllipseVisual, type ButtonEllipseVisualProps, type ButtonProps, type CanvasDragDebug, CreativeCanvas, type CreativeCanvasHandle, type CreativeCanvasProps, DEFAULT_IMAGE_MODULES, DEFAULT_PRISMATIC_CONFIG, DEFAULT_PRISMATIC_PALETTE, DEFAULT_PRISMATIC_PALETTE_BLEND_MODES, DEFAULT_PRISMATIC_THEME, DEFAULT_PRISMATIC_THEME_BLEND_MODES, DEFAULT_SLIDER_COLUMNS, type DistributionGuide, FloatingHelp, IMAGE_DESIGN_SIZE, IMAGE_PREVIEW_MODULES, ImageComponent, type ImageComponentProps, ImagePanel, LAYOUT_GAP, MODULE, type P5WithSketch, PRISMATIC_BLEND_MODES, PRISMATIC_PALETTE_TOKEN_KEYS, PRISMATIC_PALETTE_TOKEN_LABELS, PRISMATIC_THEME_CSS_VARS, PRISMATIC_THEME_PRESETS, type PanelDragDebug$1 as PanelDragDebug, type PanelId, type PanelLayoutEntry, type PanelRect, type PanelSize, type PixelPosition, type PreviewKind, type PrismaticBlendMode, type PrismaticConfig, type PrismaticPalette, type PrismaticPaletteBlendModes, type PrismaticPaletteToken, PrismaticProvider, type PrismaticProviderProps, type PrismaticStoreInit, type PrismaticStoreState, type PrismaticTheme, type PrismaticThemeBlendModes, type PrismaticThemeInput, type PrismaticThemePreset, type PrismaticThemeToken, Radio, type RadioProps, type ResolvedPrismaticConfig, type RgbColor, SLIDER_COUNT, type SketchFactory, Slider, type SliderProps, SlidersPanel, type SnapGuides, type UiGroupId, type UiGroupRect, type UiGroupSize, type Viewport, type VisualSnapGuides, WorkspaceDebugOverlay, WorkspaceGroup, WorkspacePanel, type WorkspacePanelProps, WorkspaceShell, type WorkspaceShellProps, chunkIntoColumns, clampImageModules, clampSliderColumns, clampToWorkspaceBounds, collectCanvasPanSnapTargets, collectSnapTargets, collectWorkspaceSnapLines, columnCountFromWidth, createGridLayout, createPrismaticStore, deriveThemeFromPalette, findAutoPlacedPosition, findShortcutsPosition, formatPrismaticThemeCss, getActiveCanvasSnapLines, getActiveDistributionGuides, getActiveVisualSnapLines, getCanvasScreenRect, getCanvasSnapTargetIds, getRuntimePalette, getRuntimeTheme, getRuntimeThemeBlendModes, getSnapTargetIds, getWindowMarginRect, imageComponentMetrics, imageModulesFromSize, imagePanelSize, imagePreviewSizePx, isSnapParticipant, isSnappedToTopMargin, isUiPositionClear, layoutGap, mergePanelSizes, moduleSize, moduleSpanPx, normalizeThemeInput, parseColor, resolvePrismaticConfig, resolvePrismaticPalette, resolvePrismaticTheme, samePanelIds, sameUiGroupIds, sliderColumnWidthPx, slidersPanelSize, snapCanvasPan, snapPosition, snapScalar, snapThreshold, usePanelPosition, usePrismaticStore, useWorkspaceGroup, useWorkspaceMode, useWorkspacePanel, windowMargin };
+export { BUTTON_ELLIPSE_HEIGHT, BUTTON_ELLIPSE_WIDTH, BUTTON_TEXT_LG, Button, ButtonEllipseVisual, type ButtonEllipseVisualProps, type ButtonProps, type CanvasDragDebug, CreativeCanvas, type CreativeCanvasHandle, type CreativeCanvasProps, DEFAULT_IMAGE_MODULES, DEFAULT_PRISMATIC_CONFIG, DEFAULT_PRISMATIC_PALETTE, DEFAULT_PRISMATIC_PALETTE_BLEND_MODES, DEFAULT_PRISMATIC_THEME, DEFAULT_PRISMATIC_THEME_BLEND_MODES, DEFAULT_SLIDER_COLUMNS, type DistributionGuide, FloatingHelp, IMAGE_DESIGN_SIZE, IMAGE_PREVIEW_MODULES, ImageComponent, type ImageComponentProps, ImagePanel, LAYOUT_GAP, MODULE, type P5WithSketch, PRISMATIC_BLEND_MODES, PRISMATIC_COLOR_MODES, PRISMATIC_COLOR_MODE_THEMES, PRISMATIC_PALETTE_TOKEN_KEYS, PRISMATIC_PALETTE_TOKEN_LABELS, PRISMATIC_THEME_CSS_VARS, PRISMATIC_THEME_PRESETS, type PanelDragDebug$1 as PanelDragDebug, type PanelId, type PanelLayoutEntry, type PanelRect, type PanelSize, type PixelPosition, type PreviewKind, type PrismaticBlendMode, type PrismaticColorMode, type PrismaticConfig, type PrismaticPalette, type PrismaticPaletteBlendModes, type PrismaticPaletteToken, PrismaticProvider, type PrismaticProviderProps, type PrismaticStoreInit, type PrismaticStoreState, type PrismaticTheme, type PrismaticThemeBlendModes, type PrismaticThemeInput, type PrismaticThemePreset, type PrismaticThemeToken, Radio, type RadioProps, type ResolvedPrismaticConfig, type RgbColor, SLIDER_COUNT, type SketchFactory, Slider, type SliderProps, SlidersPanel, type SnapGuides, type UiGroupId, type UiGroupRect, type UiGroupSize, type Viewport, type VisualSnapGuides, WorkspaceDebugOverlay, WorkspaceGroup, WorkspacePanel, type WorkspacePanelProps, WorkspaceShell, type WorkspaceShellProps, chunkIntoColumns, clampImageModules, clampSliderColumns, clampToWorkspaceBounds, collectCanvasPanSnapTargets, collectSnapTargets, collectWorkspaceSnapLines, columnCountFromWidth, createGridLayout, createPrismaticStore, deriveThemeFromPalette, findAutoPlacedPosition, findShortcutsPosition, formatPrismaticThemeCss, getActiveCanvasSnapLines, getActiveDistributionGuides, getActiveVisualSnapLines, getCanvasScreenRect, getCanvasSnapTargetIds, getRuntimePalette, getRuntimeTheme, getRuntimeThemeBlendModes, getSnapTargetIds, getWindowMarginRect, imageComponentMetrics, imageModulesFromSize, imagePanelSize, imagePreviewSizePx, isSnapParticipant, isSnappedToTopMargin, isUiPositionClear, layoutGap, mergePanelSizes, moduleSize, moduleSpanPx, normalizeThemeInput, parseColor, resolvePrismaticConfig, resolvePrismaticPalette, resolvePrismaticTheme, samePanelIds, sameUiGroupIds, sliderColumnWidthPx, slidersPanelSize, snapCanvasPan, snapPosition, snapScalar, snapThreshold, useImagePanelSize, usePanelPosition, usePrismaticStore, useWorkspaceGroup, useWorkspaceMode, useWorkspacePanel, windowMargin };

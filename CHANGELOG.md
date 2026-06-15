@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.2.1 — 2026-06-15
+
+### Added
+
+- `colorMode` on `PrismaticConfig` — built-in `"default"` (dark) and `"sand"` (light warm) palettes
+- `PRISMATIC_COLOR_MODES` and `PRISMATIC_COLOR_MODE_THEMES` exports
+- `useImagePanelSize()` hook — `ImageComponent` auto-sizes when rendered inside `ImagePanel`
+- Default slider line SVG assets; `lineTopSrc` / `lineBottomSrc` props are now optional
+- Squircle corner shape (`prismatic-squircle`) and updated radius tokens (`--radius`, `--radius-inner`, `--radius-inner-sm`)
+
+### Changed
+
+- `ImagePanel` syncs its size to the workspace store and provides size context to children
+- `SlidersPanel` panel height follows actual slider count instead of a fixed default
+- Playground theme controls simplified to colour-mode picker
+- README theming docs updated for `colorMode` workflow
+
+### Deprecated
+
+- `PRISMATIC_THEME_PRESETS` — use `PRISMATIC_COLOR_MODES` and `colorMode` instead
+
 ## 0.2.0 — 2026-06-15
 
 ### Added

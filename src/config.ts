@@ -3,9 +3,11 @@ import {
   DEFAULT_PRISMATIC_PALETTE_BLEND_MODES,
   DEFAULT_PRISMATIC_THEME,
   DEFAULT_PRISMATIC_THEME_BLEND_MODES,
+  PRISMATIC_COLOR_MODE_THEMES,
   normalizeThemeInput,
   setRuntimePalette,
   setRuntimeTheme,
+  type PrismaticColorMode,
   type PrismaticPalette,
   type PrismaticPaletteBlendModes,
   type PrismaticTheme,
@@ -14,6 +16,7 @@ import {
 } from "./theme/tokens"
 
 export type {
+  PrismaticColorMode,
   PrismaticPalette,
   PrismaticPaletteBlendModes,
   PrismaticTheme,
@@ -55,7 +58,9 @@ export type PrismaticConfig = {
     sliderItemHeight?: number
     imageDesignSize?: number
   }
-  /** Palette (preferred) or explicit token overrides — applied as CSS custom properties. */
+  /** Built-in colour mode. Use this in consumer projects instead of custom theme CSS. */
+  colorMode?: PrismaticColorMode
+  /** Advanced palette or token overrides. Prefer `colorMode` for the built-in looks. */
   theme?: Partial<PrismaticTheme> | PrismaticThemeInput
 }
 
@@ -68,6 +73,7 @@ export type ResolvedPrismaticConfig = {
   canvas: Required<NonNullable<PrismaticConfig["canvas"]>>
   shortcuts: Required<NonNullable<PrismaticConfig["shortcuts"]>>
   layout: Required<NonNullable<PrismaticConfig["layout"]>>
+  colorMode: PrismaticColorMode
   palette: PrismaticPalette
   paletteBlendModes: PrismaticPaletteBlendModes
   theme: PrismaticTheme
@@ -105,6 +111,7 @@ export const DEFAULT_PRISMATIC_CONFIG: ResolvedPrismaticConfig = {
     sliderItemHeight: 70,
     imageDesignSize: 436,
   },
+  colorMode: "default",
   palette: DEFAULT_PRISMATIC_PALETTE,
   paletteBlendModes: DEFAULT_PRISMATIC_PALETTE_BLEND_MODES,
   theme: DEFAULT_PRISMATIC_THEME,
@@ -116,8 +123,11 @@ export function resolvePrismaticConfig(
 ): ResolvedPrismaticConfig {
   const excluded = config?.workspace?.snapExcludedPanelIds ??
     [...DEFAULT_PRISMATIC_CONFIG.workspace.snapExcludedPanelIds]
+  const colorMode = config?.colorMode ?? "default"
+  const themeInput =
+    config?.theme ?? PRISMATIC_COLOR_MODE_THEMES[colorMode]
   const { palette, paletteBlendModes, colors, blendModes } =
-    normalizeThemeInput(config?.theme)
+    normalizeThemeInput(themeInput)
 
   return {
     workspace: {
@@ -137,6 +147,7 @@ export function resolvePrismaticConfig(
       ...DEFAULT_PRISMATIC_CONFIG.layout,
       ...config?.layout,
     },
+    colorMode,
     palette,
     paletteBlendModes,
     theme: colors,

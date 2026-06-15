@@ -320,38 +320,27 @@ function formatPrismaticThemeCss(colors, blendModes = DEFAULT_PRISMATIC_THEME_BL
     "}"
   ].join("\n");
 }
-var PRISMATIC_THEME_PRESETS = [
-  { id: "default", label: "default", theme: {} },
-  {
-    id: "dusk",
-    label: "dusk",
-    theme: {
-      palette: {
-        background: "#120f1a",
-        surface: "rgb(44, 34, 58)",
-        foreground: "#e8e0ff",
-        accent: "#c8b6ff",
-        onAccent: "#120f1a"
-      }
-    }
-  },
-  {
-    id: "sand",
-    label: "sand",
-    theme: {
-      palette: {
-        background: "#ece6dc",
-        surface: "rgb(248, 244, 238)",
-        foreground: "#1f1b16",
-        accent: "#f8f4ee",
-        onAccent: "#1f1b16"
-      },
-      paletteBlendModes: {
-        foreground: "normal"
-      }
+var PRISMATIC_COLOR_MODES = ["default", "sand"];
+var PRISMATIC_COLOR_MODE_THEMES = {
+  default: {},
+  sand: {
+    palette: {
+      background: "#ece6dc",
+      surface: "rgb(248, 244, 238)",
+      foreground: "#1f1b16",
+      accent: "#f8f4ee",
+      onAccent: "#1f1b16"
+    },
+    paletteBlendModes: {
+      foreground: "normal"
     }
   }
-];
+};
+var PRISMATIC_THEME_PRESETS = PRISMATIC_COLOR_MODES.map((id) => ({
+  id,
+  label: id,
+  theme: PRISMATIC_COLOR_MODE_THEMES[id]
+}));
 var runtimeTheme = normalizeThemeInput();
 function setRuntimeTheme(colors, blendModes = DEFAULT_PRISMATIC_THEME_BLEND_MODES) {
   runtimeTheme = {
@@ -413,6 +402,7 @@ var DEFAULT_PRISMATIC_CONFIG = {
     sliderItemHeight: 70,
     imageDesignSize: 436
   },
+  colorMode: "default",
   palette: DEFAULT_PRISMATIC_PALETTE,
   paletteBlendModes: DEFAULT_PRISMATIC_PALETTE_BLEND_MODES,
   theme: DEFAULT_PRISMATIC_THEME,
@@ -420,7 +410,9 @@ var DEFAULT_PRISMATIC_CONFIG = {
 };
 function resolvePrismaticConfig(config) {
   const excluded = config?.workspace?.snapExcludedPanelIds ?? [...DEFAULT_PRISMATIC_CONFIG.workspace.snapExcludedPanelIds];
-  const { palette, paletteBlendModes, colors, blendModes } = normalizeThemeInput(config?.theme);
+  const colorMode = config?.colorMode ?? "default";
+  const themeInput = config?.theme ?? PRISMATIC_COLOR_MODE_THEMES[colorMode];
+  const { palette, paletteBlendModes, colors, blendModes } = normalizeThemeInput(themeInput);
   return {
     workspace: {
       ...DEFAULT_PRISMATIC_CONFIG.workspace,
@@ -439,6 +431,7 @@ function resolvePrismaticConfig(config) {
       ...DEFAULT_PRISMATIC_CONFIG.layout,
       ...config?.layout
     },
+    colorMode,
     palette,
     paletteBlendModes,
     theme: colors,
@@ -2722,6 +2715,10 @@ function FloatingHelp({
     )
   ] });
 }
+var ImagePanelSizeContext = react.createContext(null);
+function useImagePanelSize() {
+  return react.useContext(ImagePanelSizeContext);
+}
 var HOVER_GRACE_MS = 220;
 function SizeIcon({ modules, maxModules }) {
   const fill = Math.min(modules, maxModules) / maxModules;
@@ -2789,12 +2786,16 @@ function ImagePanel({ children, panelId = "image" }) {
   const workspaceMode = useStore((s) => s.workspaceMode);
   const imageModules = useStore((s) => s.imagePreviewModules);
   const setImagePreviewModules = useStore((s) => s.setImagePreviewModules);
+  const setUiGroupSize = useStore((s) => s.setUiGroupSize);
   const workspacePanel = useWorkspacePanel();
   const resizeStartRef = react.useRef(null);
   const hideTimerRef = react.useRef(null);
   const [resizing, setResizing] = react.useState(false);
   const [controlsOpen, setControlsOpen] = react.useState(false);
   const panelSize = imagePanelSize(imageModules);
+  react.useEffect(() => {
+    setUiGroupSize(panelId, panelSize);
+  }, [panelId, panelSize, setUiGroupSize]);
   const clearHideTimer = () => {
     if (hideTimerRef.current) {
       clearTimeout(hideTimerRef.current);
@@ -2861,7 +2862,7 @@ function ImagePanel({ children, panelId = "image" }) {
           ].join(" "),
           style: panelSize,
           children: [
-            /* @__PURE__ */ jsxRuntime.jsx("div", { className: "size-full", children }),
+            /* @__PURE__ */ jsxRuntime.jsx(ImagePanelSizeContext.Provider, { value: panelSize.width, children: /* @__PURE__ */ jsxRuntime.jsx("div", { className: "flex size-full items-center justify-center", children }) }),
             showControls && /* @__PURE__ */ jsxRuntime.jsx("div", { className: "workspace-controls pointer-events-auto absolute left-1 top-1 z-30", children: /* @__PURE__ */ jsxRuntime.jsx(ImageSizeToolbar, { modules: imageModules, onChange: setImagePreviewModules }) }),
             workspaceMode && /* @__PURE__ */ jsxRuntime.jsx(
               "div",
@@ -2962,7 +2963,8 @@ function SlidersPanel({ children, panelId = "sliders" }) {
   const hideTimerRef = react.useRef(null);
   const [resizing, setResizing] = react.useState(false);
   const [controlsOpen, setControlsOpen] = react.useState(false);
-  const panelSize = slidersPanelSize(columnCount);
+  const sliderCount = react.Children.count(children);
+  const panelSize = slidersPanelSize(columnCount, sliderCount);
   const columnWidth = sliderColumnWidthPx();
   const columns = chunkIntoColumns(react.Children.toArray(children), columnCount);
   const clearHideTimer = () => {
@@ -3173,6 +3175,12 @@ function Button({
     }
   );
 }
+var DEFAULT_SLIDER_LINE_TOP = `data:image/svg+xml,${encodeURIComponent(
+  `<svg preserveAspectRatio="none" width="100%" height="100%" overflow="visible" style="display: block;" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><g opacity="1"><line x1="0.86003" y1="-0.86003" x2="17.1552" y2="-0.86003" stroke="white" style="mix-blend-mode:difference" stroke-width="1.72006" stroke-linecap="round"/></g></svg>`
+)}`;
+var DEFAULT_SLIDER_LINE_BOTTOM = `data:image/svg+xml,${encodeURIComponent(
+  `<svg preserveAspectRatio="none" width="100%" height="100%" overflow="visible" style="display: block;" viewBox="0 0 18.0153 1.72006" fill="none" xmlns="http://www.w3.org/2000/svg"><g><line x1="0.86003" y1="0.86003" x2="17.1552" y2="0.86003" stroke="white" style="mix-blend-mode:difference" stroke-width="1.72006" stroke-linecap="round"/></g></svg>`
+)}`;
 function clamp(n, lo, hi) {
   return Math.min(hi, Math.max(lo, n));
 }
@@ -3195,8 +3203,8 @@ function Slider({
   step = 0.01,
   displayValue,
   onChange,
-  lineTopSrc,
-  lineBottomSrc
+  lineTopSrc = DEFAULT_SLIDER_LINE_TOP,
+  lineBottomSrc = DEFAULT_SLIDER_LINE_BOTTOM
 }) {
   const trackAreaRef = react.useRef(null);
   const hitAreaRef = react.useRef(null);
@@ -3317,7 +3325,7 @@ function Slider({
   return /* @__PURE__ */ jsxRuntime.jsxs(
     "div",
     {
-      className: "prismatic-surface-frame relative box-border flex w-full flex-col justify-center overflow-hidden rounded-[var(--radius)] p-1",
+      className: "prismatic-surface-frame prismatic-squircle relative box-border flex w-full flex-col justify-center overflow-hidden rounded-[var(--radius)] p-1",
       style: {
         ...PRISMATIC_SURFACE_FRAME_STYLE,
         height: OUTER_H,
@@ -3380,7 +3388,7 @@ function Slider({
                           /* @__PURE__ */ jsxRuntime.jsx(
                             "div",
                             {
-                              className: `pointer-events-none absolute inset-y-0 left-0 rounded-[var(--radius-inner)] ${showRange ? "bg-transparent" : "prismatic-bg-surface-muted"}`,
+                              className: `pointer-events-none absolute inset-y-0 left-0 rounded-[var(--radius-inner)] prismatic-squircle ${showRange ? "bg-transparent" : "prismatic-bg-surface-muted"}`,
                               style: {
                                 width: pillWidthStyle.width,
                                 minWidth: pillWidthStyle.minWidth
@@ -3470,7 +3478,7 @@ function Slider({
                       /* @__PURE__ */ jsxRuntime.jsx(
                         "div",
                         {
-                          className: "prismatic-bg-surface-muted pointer-events-none absolute inset-y-0 left-0 overflow-hidden rounded-[var(--radius-inner-sm)] backdrop-blur-[14.649px] [corner-shape:round]",
+                          className: "prismatic-bg-surface-muted prismatic-squircle pointer-events-none absolute inset-y-0 left-0 overflow-hidden rounded-[var(--radius-inner-sm)] backdrop-blur-[14.649px] [corner-shape:round]",
                           style: {
                             width: pillWidthStyle.width,
                             minWidth: pillWidthStyle.minWidth
@@ -3565,7 +3573,12 @@ function ImageComponent({
   const inputId = react.useId();
   const inputRef = react.useRef(null);
   const [isActive, setIsActive] = react.useState(false);
-  const metrics = imageComponentMetrics(size);
+  const panelSide = useImagePanelSize();
+  const resolvedSize = panelSide ?? size;
+  if (resolvedSize == null || resolvedSize <= 0) {
+    throw new Error("ImageComponent requires `size` or an ImagePanel parent");
+  }
+  const metrics = imageComponentMetrics(resolvedSize);
   const shortName = fileName.length > 42 ? `${fileName.slice(0, 39)}\u2026` : fileName;
   const openPicker = () => inputRef.current?.click();
   const onKeyDown = (e) => {
@@ -3578,7 +3591,7 @@ function ImageComponent({
     "div",
     {
       className: "group relative shrink-0 cursor-pointer rounded-[500px] outline-none [corner-shape:round]",
-      style: { width: size, height: size },
+      style: { width: resolvedSize, height: resolvedSize },
       role: "button",
       tabIndex: 0,
       "aria-label": "Replace source image or video",
@@ -3629,7 +3642,7 @@ function ImageComponent({
                 "div",
                 {
                   className: [
-                    "prismatic-border-accent prismatic-bg-image-meta flex w-full max-w-[274px] flex-col justify-center rounded-[var(--radius)] border border-solid pl-[18px] pr-[12px] prismatic-text-muted backdrop-blur-[10px] transition-[background-color,border-color,color] duration-200 group-hover:border-transparent group-hover:prismatic-bg-image-meta-hover group-hover:prismatic-text-primary",
+                    "prismatic-border-accent prismatic-bg-image-meta prismatic-squircle flex w-full max-w-[274px] flex-col justify-center rounded-[var(--radius-inner)] border border-solid pl-[18px] pr-[12px] prismatic-text-muted backdrop-blur-[10px] transition-[background-color,border-color,color] duration-200 group-hover:border-transparent group-hover:prismatic-bg-image-meta-hover group-hover:prismatic-text-primary",
                     metrics.showFileSize ? "gap-2 py-3" : "py-2.5"
                   ].join(" "),
                   style: {
@@ -3735,6 +3748,8 @@ exports.ImagePanel = ImagePanel;
 exports.LAYOUT_GAP = LAYOUT_GAP;
 exports.MODULE = MODULE;
 exports.PRISMATIC_BLEND_MODES = PRISMATIC_BLEND_MODES;
+exports.PRISMATIC_COLOR_MODES = PRISMATIC_COLOR_MODES;
+exports.PRISMATIC_COLOR_MODE_THEMES = PRISMATIC_COLOR_MODE_THEMES;
 exports.PRISMATIC_PALETTE_TOKEN_KEYS = PRISMATIC_PALETTE_TOKEN_KEYS;
 exports.PRISMATIC_PALETTE_TOKEN_LABELS = PRISMATIC_PALETTE_TOKEN_LABELS;
 exports.PRISMATIC_THEME_CSS_VARS = PRISMATIC_THEME_CSS_VARS;
@@ -3796,6 +3811,7 @@ exports.snapCanvasPan = snapCanvasPan;
 exports.snapPosition = snapPosition;
 exports.snapScalar = snapScalar;
 exports.snapThreshold = snapThreshold;
+exports.useImagePanelSize = useImagePanelSize;
 exports.usePanelPosition = usePanelPosition;
 exports.usePrismaticStore = usePrismaticStore;
 exports.useWorkspaceGroup = useWorkspaceGroup;

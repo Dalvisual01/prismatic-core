@@ -32,7 +32,16 @@
   --prismatic-image-meta-bg-blend-mode: normal;
   --prismatic-image-meta-bg-hover: rgba(255, 255, 255, 0.5);
   --prismatic-image-meta-bg-hover-blend-mode: normal;
-  --radius: 12px;
+  --radius: 32px;
+  /* Inner content nested in a `p-1` (4px) parent uses parent radius − margin. */
+  --radius-inner: calc(var(--radius) - 4px);
+  /* Shorter inner pills (e.g. slider min/max row). Uses `[corner-shape:round]` so
+     this is real CSS radius (caps to half-height for a stadium). */
+  --radius-inner-sm: 12px;
+}
+
+.prismatic-squircle {
+  corner-shape: squircle;
 }
 
 .prismatic-text-primary {

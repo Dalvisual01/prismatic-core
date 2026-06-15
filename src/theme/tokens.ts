@@ -475,44 +475,42 @@ export function formatPrismaticThemeCss(
   ].join("\n")
 }
 
+export type PrismaticColorMode = "default" | "sand"
+
+export const PRISMATIC_COLOR_MODES = ["default", "sand"] as const satisfies readonly PrismaticColorMode[]
+
+export const PRISMATIC_COLOR_MODE_THEMES: Record<
+  PrismaticColorMode,
+  PrismaticThemeInput
+> = {
+  default: {},
+  sand: {
+    palette: {
+      background: "#ece6dc",
+      surface: "rgb(248, 244, 238)",
+      foreground: "#1f1b16",
+      accent: "#f8f4ee",
+      onAccent: "#1f1b16",
+    },
+    paletteBlendModes: {
+      foreground: "normal",
+    },
+  },
+}
+
 export type PrismaticThemePreset = {
-  id: string
+  id: PrismaticColorMode
   label: string
   theme: PrismaticThemeInput
 }
 
-export const PRISMATIC_THEME_PRESETS: PrismaticThemePreset[] = [
-  { id: "default", label: "default", theme: {} },
-  {
-    id: "dusk",
-    label: "dusk",
-    theme: {
-      palette: {
-        background: "#120f1a",
-        surface: "rgb(44, 34, 58)",
-        foreground: "#e8e0ff",
-        accent: "#c8b6ff",
-        onAccent: "#120f1a",
-      },
-    },
-  },
-  {
-    id: "sand",
-    label: "sand",
-    theme: {
-      palette: {
-        background: "#ece6dc",
-        surface: "rgb(248, 244, 238)",
-        foreground: "#1f1b16",
-        accent: "#f8f4ee",
-        onAccent: "#1f1b16",
-      },
-      paletteBlendModes: {
-        foreground: "normal",
-      },
-    },
-  },
-]
+/** @deprecated Use `PRISMATIC_COLOR_MODES` and `colorMode` on `PrismaticConfig`. */
+export const PRISMATIC_THEME_PRESETS: PrismaticThemePreset[] =
+  PRISMATIC_COLOR_MODES.map((id) => ({
+    id,
+    label: id,
+    theme: PRISMATIC_COLOR_MODE_THEMES[id],
+  }))
 
 type RuntimeThemeState = {
   palette: PrismaticPalette

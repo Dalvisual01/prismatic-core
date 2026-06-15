@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react"
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent,
+  type ReactNode,
+} from "react"
 import { usePrismaticStore } from "../../hooks/usePrismaticStore"
 import {
   imageModulesFromSize,
@@ -7,6 +15,13 @@ import {
   imagePreviewSizePx,
 } from "../../workspace/imageLayout"
 import { useWorkspacePanel } from "../WorkspacePanel"
+
+const ImagePanelSizeContext = createContext<number | null>(null)
+
+/** Pixel side length when `ImageComponent` is rendered inside `ImagePanel`. */
+export function useImagePanelSize() {
+  return useContext(ImagePanelSizeContext)
+}
 
 const HOVER_GRACE_MS = 220
 
@@ -87,6 +102,7 @@ export function ImagePanel({ children, panelId = "image" }: ImagePanelProps) {
   const workspaceMode = useStore((s) => s.workspaceMode)
   const imageModules = useStore((s) => s.imagePreviewModules)
   const setImagePreviewModules = useStore((s) => s.setImagePreviewModules)
+  const setUiGroupSize = useStore((s) => s.setUiGroupSize)
 
   const workspacePanel = useWorkspacePanel()
   const resizeStartRef = useRef<{ x: number; size: number } | null>(null)
@@ -95,6 +111,10 @@ export function ImagePanel({ children, panelId = "image" }: ImagePanelProps) {
   const [controlsOpen, setControlsOpen] = useState(false)
 
   const panelSize = imagePanelSize(imageModules)
+
+  useEffect(() => {
+    setUiGroupSize(panelId, panelSize)
+  }, [panelId, panelSize, setUiGroupSize])
 
   const clearHideTimer = () => {
     if (hideTimerRef.current) {
@@ -172,7 +192,9 @@ export function ImagePanel({ children, panelId = "image" }: ImagePanelProps) {
         ].join(" ")}
         style={panelSize}
       >
-        <div className="size-full">{children}</div>
+        <ImagePanelSizeContext.Provider value={panelSize.width}>
+          <div className="flex size-full items-center justify-center">{children}</div>
+        </ImagePanelSizeContext.Provider>
 
         {showControls && (
           <div className="workspace-controls pointer-events-auto absolute left-1 top-1 z-30">

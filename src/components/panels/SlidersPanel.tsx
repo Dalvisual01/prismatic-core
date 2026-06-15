@@ -106,7 +106,8 @@ export function SlidersPanel({ children, panelId = "sliders" }: SlidersPanelProp
   const [resizing, setResizing] = useState(false)
   const [controlsOpen, setControlsOpen] = useState(false)
 
-  const panelSize = slidersPanelSize(columnCount)
+  const sliderCount = Children.count(children)
+  const panelSize = slidersPanelSize(columnCount, sliderCount)
   const columnWidth = sliderColumnWidthPx()
   const columns = chunkIntoColumns(Children.toArray(children), columnCount)
 
