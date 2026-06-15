@@ -116,11 +116,7 @@ function PlaygroundPanelContent({
     case "button":
       return (
         <PanelChrome title={label} onRemove={onRemove}>
-          <div className="flex flex-col items-start gap-4">
-            <Button variant="frame">upload image</Button>
-            <Button variant="save">save result</Button>
-            <Button variant="cta">generic cta</Button>
-          </div>
+          <Button>save</Button>
         </PanelChrome>
       )
     case "slider":

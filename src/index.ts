@@ -77,20 +77,7 @@ export { ImagePanel } from "./components/panels/ImagePanel"
 export { SlidersPanel } from "./components/panels/SlidersPanel"
 
 // UI primitives
-export {
-  Button,
-  type ButtonProps,
-  type ButtonVariant,
-  ButtonEllipseVisual,
-  type ButtonEllipseVisualProps,
-  BUTTON_TEXT_LG,
-  BUTTON_ELLIPSE_WIDTH,
-  BUTTON_ELLIPSE_HEIGHT,
-  BUTTON_FRAME_WIDTH,
-  BUTTON_FRAME_HEIGHT,
-  BUTTON_SAVE_WIDTH,
-  BUTTON_SAVE_HEIGHT,
-} from "./components/ui/Button"
+export { Button, type ButtonProps, ButtonEllipseVisual, type ButtonEllipseVisualProps, BUTTON_TEXT_LG, BUTTON_ELLIPSE_WIDTH, BUTTON_ELLIPSE_HEIGHT } from "./components/ui/Button"
 export { Slider, type SliderProps } from "./components/ui/Slider"
 export { Radio, type RadioProps } from "./components/ui/Radio"
 export {

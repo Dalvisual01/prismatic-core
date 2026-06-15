@@ -226,25 +226,6 @@ export const createMySketch: SketchFactory = (p) =>
 
 `Slider`, `Button`, `Radio`, `ImageComponent` — styled controls for generative tool UIs.
 
-### Button variants
-
-| `variant` | Use case | Default size | Visual |
-|-----------|----------|--------------|--------|
-| `"cta"` | Playground / generic CTA | 274×120 | Theme outline → filled on hover |
-| `"frame"` | Secondary actions (upload, reset) | 194×120 | Stroke-only ellipse, difference-blend label |
-| `"save"` | Primary export/save | 216×113 | Always-filled ellipse, difference-blend label |
-
-```tsx
-<Button variant="frame" onClick={onUpload}>upload image</Button>
-<Button variant="save" onClick={onSave}>save result</Button>
-<Button variant="cta">generic cta</Button>
-
-// Custom save asset (optional — defaults to /assets/save-button-bg.svg)
-<Button variant="save" saveButtonBg='url("/assets/save-button-bg.svg")'>
-  save result
-</Button>
-```
-
 Optional asset props for app-specific SVGs:
 
 ```tsx

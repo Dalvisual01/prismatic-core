@@ -3084,45 +3084,20 @@ function SlidersPanel({ children, panelId = "sliders" }) {
 var BUTTON_TEXT_LG = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] lowercase";
 var BUTTON_ELLIPSE_WIDTH = 274;
 var BUTTON_ELLIPSE_HEIGHT = 120;
-var BUTTON_FRAME_WIDTH = 194;
-var BUTTON_FRAME_HEIGHT = 120;
-var BUTTON_SAVE_WIDTH = 216;
-var BUTTON_SAVE_HEIGHT = 113;
-var DEFAULT_SIZE = {
-  cta: { width: BUTTON_ELLIPSE_WIDTH, height: BUTTON_ELLIPSE_HEIGHT },
-  frame: { width: BUTTON_FRAME_WIDTH, height: BUTTON_FRAME_HEIGHT },
-  save: { width: BUTTON_SAVE_WIDTH, height: BUTTON_SAVE_HEIGHT }
-};
-var SCALE_LAYER = "transform-gpu transition-transform duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform group-hover:scale-[1.02] group-active:scale-[0.98] group-disabled:scale-100";
 function ButtonEllipseVisual({
-  variant = "cta",
   active,
   children,
   width = BUTTON_ELLIPSE_WIDTH,
   height = BUTTON_ELLIPSE_HEIGHT,
-  className = "",
-  saveButtonBg
+  className = ""
 }) {
-  const useDifferenceBlend = variant === "frame" || variant === "save";
-  const showSvg = variant !== "save" || !saveButtonBg;
-  const fill = variant === "frame" ? "transparent" : variant === "save" ? "var(--prismatic-accent-stroke)" : active ? "var(--prismatic-surface-active)" : "transparent";
-  const stroke = variant === "save" || variant === "cta" && active ? "transparent" : "var(--prismatic-accent-stroke)";
-  const textClass = useDifferenceBlend ? `text-black ${BUTTON_TEXT_LG}` : `${active ? "prismatic-text-on-active" : "prismatic-text-muted"} ${BUTTON_TEXT_LG}`;
   return /* @__PURE__ */ jsxRuntime.jsxs(
     "div",
     {
-      className: `relative isolate flex items-center justify-center ${variant !== "cta" ? SCALE_LAYER : ""} ${className}`,
+      className: `relative isolate flex items-center justify-center ${className}`,
       style: { width, height },
       children: [
-        variant === "save" && saveButtonBg && /* @__PURE__ */ jsxRuntime.jsx(
-          "span",
-          {
-            "aria-hidden": true,
-            className: "pointer-events-none absolute inset-0 bg-contain bg-center bg-no-repeat",
-            style: { backgroundImage: saveButtonBg }
-          }
-        ),
-        showSvg && /* @__PURE__ */ jsxRuntime.jsx(
+        /* @__PURE__ */ jsxRuntime.jsx(
           "svg",
           {
             viewBox: `0 0 ${BUTTON_ELLIPSE_WIDTH} ${BUTTON_ELLIPSE_HEIGHT}`,
@@ -3136,8 +3111,8 @@ function ButtonEllipseVisual({
                 cy: "60",
                 rx: "136",
                 ry: "59",
-                fill,
-                stroke,
+                fill: active ? "var(--prismatic-surface-active)" : "transparent",
+                stroke: active ? "transparent" : "var(--prismatic-accent-stroke)",
                 strokeWidth: "1",
                 vectorEffect: "non-scaling-stroke"
               }
@@ -3147,7 +3122,7 @@ function ButtonEllipseVisual({
         /* @__PURE__ */ jsxRuntime.jsx(
           "span",
           {
-            className: `relative z-[2] text-center ${useDifferenceBlend ? "mix-blend-difference" : "mix-blend-normal"} ${textClass}`,
+            className: `relative z-[2] mix-blend-normal ${active ? "prismatic-text-on-active" : "prismatic-text-muted"} ${BUTTON_TEXT_LG}`,
             children
           }
         )
@@ -3157,10 +3132,8 @@ function ButtonEllipseVisual({
 }
 function Button({
   children,
-  variant = "cta",
-  saveButtonBg = 'url("/assets/save-button-bg.svg")',
-  width,
-  height,
+  width = BUTTON_ELLIPSE_WIDTH,
+  height = BUTTON_ELLIPSE_HEIGHT,
   className = "",
   type = "button",
   disabled,
@@ -3172,16 +3145,13 @@ function Button({
 }) {
   const [isActive, setIsActive] = react.useState(false);
   const active = !disabled && isActive;
-  const defaults = DEFAULT_SIZE[variant];
-  const resolvedWidth = width ?? defaults.width;
-  const resolvedHeight = height ?? defaults.height;
   return /* @__PURE__ */ jsxRuntime.jsx(
     "button",
     {
       type,
       disabled,
-      className: `${variant !== "cta" ? "group" : ""} relative flex cursor-pointer select-none items-center justify-center outline-none disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:outline-none ${className}`,
-      style: { width: resolvedWidth, height: resolvedHeight },
+      className: `relative flex cursor-pointer select-none items-center justify-center outline-none disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:outline-none ${className}`,
+      style: { width, height },
       onMouseEnter: (e) => {
         if (!disabled) setIsActive(true);
         onMouseEnter?.(e);
@@ -3199,17 +3169,7 @@ function Button({
         onBlur?.(e);
       },
       ...rest,
-      children: /* @__PURE__ */ jsxRuntime.jsx(
-        ButtonEllipseVisual,
-        {
-          variant,
-          active,
-          width: resolvedWidth,
-          height: resolvedHeight,
-          saveButtonBg: variant === "save" ? saveButtonBg : void 0,
-          children
-        }
-      )
+      children: /* @__PURE__ */ jsxRuntime.jsx(ButtonEllipseVisual, { active, width, height, children })
     }
   );
 }
@@ -3756,10 +3716,6 @@ function mergePanelSizes(sizes, overrides) {
 
 exports.BUTTON_ELLIPSE_HEIGHT = BUTTON_ELLIPSE_HEIGHT;
 exports.BUTTON_ELLIPSE_WIDTH = BUTTON_ELLIPSE_WIDTH;
-exports.BUTTON_FRAME_HEIGHT = BUTTON_FRAME_HEIGHT;
-exports.BUTTON_FRAME_WIDTH = BUTTON_FRAME_WIDTH;
-exports.BUTTON_SAVE_HEIGHT = BUTTON_SAVE_HEIGHT;
-exports.BUTTON_SAVE_WIDTH = BUTTON_SAVE_WIDTH;
 exports.BUTTON_TEXT_LG = BUTTON_TEXT_LG;
 exports.Button = Button;
 exports.ButtonEllipseVisual = ButtonEllipseVisual;
