@@ -87,8 +87,19 @@ export {
 export { WorkspaceShell, type WorkspaceShellProps } from "./components/WorkspaceShell"
 export { WorkspaceDebugOverlay } from "./components/WorkspaceDebugOverlay"
 export { FloatingHelp } from "./components/FloatingHelp"
+export {
+  AppTitle,
+  APP_TITLE_TEXT_LG,
+  APP_TITLE_TEXT_SM,
+  type AppTitleProps,
+  type AppTitleSize,
+} from "./components/AppTitle"
 
 // Panels
+export {
+  AppTitlePanel,
+  type AppTitlePanelProps,
+} from "./components/panels/AppTitlePanel"
 export { ImagePanel, useImagePanelSize } from "./components/panels/ImagePanel"
 export { SlidersPanel } from "./components/panels/SlidersPanel"
 

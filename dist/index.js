@@ -2947,11 +2947,275 @@ function FloatingHelp({
     )
   ] });
 }
+var APP_TITLE_TEXT_SM = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[13px] leading-[1.1] tracking-[-0.26px] lowercase";
+var APP_TITLE_TEXT_LG = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] lowercase";
+var SIZE_METRICS = {
+  small: {
+    textClass: APP_TITLE_TEXT_SM,
+    lineHeight: 14,
+    gapClass: "gap-1.5"
+  },
+  large: {
+    textClass: APP_TITLE_TEXT_LG,
+    lineHeight: 20,
+    gapClass: "gap-2"
+  }
+};
+function AppTitle({
+  title,
+  subtitle,
+  size = "small",
+  logo,
+  logoSrc,
+  logoAlt = "",
+  className = "",
+  textClassName = "",
+  subtitleClassName = "",
+  textBlockClassName = "",
+  logoClassName = "",
+  style,
+  logoImgProps
+}) {
+  const metrics = SIZE_METRICS[size];
+  const logoHeight = metrics.lineHeight * (subtitle ? 2 : 1);
+  const resolvedLogo = logo ?? (logoSrc ? /* @__PURE__ */ jsx(
+    "img",
+    {
+      src: logoSrc,
+      alt: logoAlt,
+      height: logoHeight,
+      ...logoImgProps,
+      className: [logoImgProps?.className, "block h-full w-auto"].filter(Boolean).join(" ")
+    }
+  ) : null);
+  return /* @__PURE__ */ jsxs(
+    "div",
+    {
+      className: [
+        "prismatic-text-primary inline-flex w-fit items-center",
+        metrics.gapClass,
+        className
+      ].filter(Boolean).join(" "),
+      style,
+      children: [
+        resolvedLogo ? /* @__PURE__ */ jsx(
+          "span",
+          {
+            className: ["inline-flex shrink-0 items-center", logoClassName].filter(Boolean).join(" "),
+            style: { height: logoHeight },
+            "aria-hidden": logoSrc && logoAlt === "" ? true : void 0,
+            children: resolvedLogo
+          }
+        ) : null,
+        /* @__PURE__ */ jsxs(
+          "span",
+          {
+            className: ["inline-flex flex-col justify-center", textBlockClassName].filter(Boolean).join(" "),
+            children: [
+              /* @__PURE__ */ jsx(
+                "span",
+                {
+                  className: [metrics.textClass, textClassName].filter(Boolean).join(" "),
+                  children: title
+                }
+              ),
+              subtitle ? /* @__PURE__ */ jsx(
+                "span",
+                {
+                  className: [metrics.textClass, subtitleClassName].filter(Boolean).join(" "),
+                  children: subtitle
+                }
+              ) : null
+            ]
+          }
+        )
+      ]
+    }
+  );
+}
+var HOVER_GRACE_MS = 220;
+var DEFAULT_TITLE_SIZES = ["small", "large"];
+var RESIZE_STEP_PX = 48;
+function clampIndex(index, max) {
+  return Math.max(0, Math.min(max, index));
+}
+function TitleSizeToolbar({
+  size,
+  options,
+  onChange
+}) {
+  return /* @__PURE__ */ jsx(
+    "div",
+    {
+      className: "workspace-controls prismatic-bg-overlay prismatic-text-primary flex items-center gap-0.5 rounded-full p-0.5 shadow-lg backdrop-blur-sm",
+      role: "toolbar",
+      "aria-label": "Title size",
+      children: options.map((option) => {
+        const active = option === size;
+        const label = option === "small" ? "S" : "M";
+        return /* @__PURE__ */ jsx(
+          "button",
+          {
+            type: "button",
+            title: `${option} title`,
+            "aria-pressed": active,
+            className: [
+              "rounded-full px-2 py-1 text-[10px] transition-colors",
+              active ? "prismatic-bg-surface-active prismatic-text-on-active" : "prismatic-text-primary hover:prismatic-bg-border-subtle"
+            ].join(" "),
+            onPointerDown: (e) => e.stopPropagation(),
+            onClick: () => onChange(option),
+            children: label
+          },
+          option
+        );
+      })
+    }
+  );
+}
+function AppTitlePanel({
+  panelId,
+  size,
+  defaultSize = "small",
+  sizeOptions = DEFAULT_TITLE_SIZES,
+  onSizeChange,
+  ...titleProps
+}) {
+  const useStore = usePrismaticStore();
+  const workspaceMode = useStore((s) => s.workspaceMode);
+  const setUiGroupSize = useStore((s) => s.setUiGroupSize);
+  const workspacePanel = useWorkspacePanel();
+  const resolvedPanelId = panelId ?? workspacePanel?.id ?? "app-title";
+  const rootRef = useRef(null);
+  const resizeStartRef = useRef(null);
+  const hideTimerRef = useRef(null);
+  const [internalSize, setInternalSize] = useState(defaultSize);
+  const [resizing, setResizing] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(false);
+  const currentSize = size ?? internalSize;
+  const allowedSizes = [...sizeOptions];
+  const setTitleSize = (next) => {
+    if (size === void 0) setInternalSize(next);
+    onSizeChange?.(next);
+  };
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const updateSize = () => {
+      setUiGroupSize(resolvedPanelId, {
+        width: el.offsetWidth,
+        height: el.offsetHeight
+      });
+    };
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [resolvedPanelId, currentSize, setUiGroupSize]);
+  const clearHideTimer = () => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  };
+  const openControls = () => {
+    clearHideTimer();
+    setControlsOpen(true);
+  };
+  const scheduleCloseControls = () => {
+    if (resizing) return;
+    clearHideTimer();
+    hideTimerRef.current = setTimeout(() => {
+      setControlsOpen(false);
+      hideTimerRef.current = null;
+    }, HOVER_GRACE_MS);
+  };
+  useEffect(() => () => clearHideTimer(), []);
+  useEffect(() => {
+    if (!workspaceMode) {
+      clearHideTimer();
+      setControlsOpen(false);
+    }
+  }, [workspaceMode]);
+  const panelHovered = workspacePanel?.id === resolvedPanelId && workspacePanel.hovered;
+  useEffect(() => {
+    if (workspaceMode && panelHovered) openControls();
+  }, [panelHovered, workspaceMode]);
+  const onResizePointerDown = (e) => {
+    if (!workspaceMode || e.button !== 0) return;
+    const el = rootRef.current;
+    if (!el) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openControls();
+    resizeStartRef.current = {
+      x: e.clientX,
+      size: currentSize
+    };
+    setResizing(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onResizePointerMove = (e) => {
+    if (!resizing || !resizeStartRef.current) return;
+    const delta = e.clientX - resizeStartRef.current.x;
+    const startIndex = Math.max(
+      0,
+      allowedSizes.indexOf(resizeStartRef.current.size)
+    );
+    const nextIndex = clampIndex(
+      startIndex + Math.round(delta / RESIZE_STEP_PX),
+      allowedSizes.length - 1
+    );
+    setTitleSize(allowedSizes[nextIndex] ?? currentSize);
+  };
+  const finishResize = (e) => {
+    if (!resizing) return;
+    resizeStartRef.current = null;
+    setResizing(false);
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+  const showControls = workspaceMode && (controlsOpen || resizing);
+  return /* @__PURE__ */ jsx(
+    "div",
+    {
+      className: "workspace-hover-zone relative w-fit",
+      onMouseEnter: openControls,
+      onMouseLeave: scheduleCloseControls,
+      children: /* @__PURE__ */ jsxs("div", { ref: rootRef, className: "workspace-panel relative w-fit", children: [
+        /* @__PURE__ */ jsx(AppTitle, { ...titleProps, size: currentSize }),
+        showControls && /* @__PURE__ */ jsx("div", { className: "workspace-controls pointer-events-auto absolute left-0 -top-9 z-30", children: /* @__PURE__ */ jsx(
+          TitleSizeToolbar,
+          {
+            size: currentSize,
+            options: allowedSizes,
+            onChange: setTitleSize
+          }
+        ) }),
+        workspaceMode && /* @__PURE__ */ jsx(
+          "div",
+          {
+            className: [
+              "workspace-controls absolute -right-1.5 -bottom-1.5 z-10 size-4 cursor-ew-resize transition-opacity duration-150",
+              showControls ? "opacity-100" : "opacity-0"
+            ].join(" "),
+            onPointerDown: onResizePointerDown,
+            onPointerMove: onResizePointerMove,
+            onPointerUp: finishResize,
+            onPointerCancel: finishResize,
+            "aria-label": "Resize title",
+            children: /* @__PURE__ */ jsx("div", { className: "absolute right-0.5 bottom-0.5 size-2 rounded-sm border-r border-b border-[var(--prismatic-accent-stroke)] opacity-70" })
+          }
+        ),
+        workspaceMode && resizing && /* @__PURE__ */ jsx("div", { className: "workspace-controls prismatic-bg-overlay prismatic-text-primary pointer-events-none absolute bottom-[-30px] left-1/2 z-30 -translate-x-1/2 rounded-full px-2 py-0.5 text-[10px] lowercase backdrop-blur-sm", children: currentSize === "small" ? "S" : "M" })
+      ] })
+    }
+  );
+}
 var ImagePanelSizeContext = createContext(null);
 function useImagePanelSize() {
   return useContext(ImagePanelSizeContext);
 }
-var HOVER_GRACE_MS = 220;
+var HOVER_GRACE_MS2 = 220;
 function SizeIcon({ modules, maxModules }) {
   const fill = Math.min(modules, maxModules) / maxModules;
   const inset = (1 - fill) * 5;
@@ -2981,15 +3245,17 @@ function SizeIcon({ modules, maxModules }) {
 function ImageSizeToolbar({ modules, onChange }) {
   const allowed = [...imagePreviewModulesList()];
   const maxModules = allowed[allowed.length - 1] ?? 6;
+  const labels = ["S", "M", "L"];
   return /* @__PURE__ */ jsx(
     "div",
     {
       className: "workspace-controls prismatic-bg-overlay prismatic-text-primary flex items-center gap-0.5 rounded-full p-0.5 shadow-lg backdrop-blur-sm",
       role: "toolbar",
       "aria-label": "Preview size",
-      children: allowed.map((count) => {
+      children: allowed.map((count, index) => {
         const active = count === modules;
         const px = imagePreviewSizePx(count);
+        const label = labels[index] ?? String(count);
         return /* @__PURE__ */ jsxs(
           "button",
           {
@@ -2997,14 +3263,14 @@ function ImageSizeToolbar({ modules, onChange }) {
             title: `${px}px preview`,
             "aria-pressed": active,
             className: [
-              "flex items-center gap-1 rounded-full px-2 py-1 text-[10px] lowercase transition-colors",
+              "flex items-center gap-1 rounded-full px-2 py-1 text-[10px] transition-colors",
               active ? "prismatic-bg-surface-active prismatic-text-on-active" : "prismatic-text-primary hover:prismatic-bg-border-subtle"
             ].join(" "),
             onPointerDown: (e) => e.stopPropagation(),
             onClick: () => onChange(count),
             children: [
               /* @__PURE__ */ jsx(SizeIcon, { modules: count, maxModules }),
-              /* @__PURE__ */ jsx("span", { children: px })
+              /* @__PURE__ */ jsx("span", { children: label })
             ]
           },
           count
@@ -3044,7 +3310,7 @@ function ImagePanel({ children, panelId = "image" }) {
     hideTimerRef.current = setTimeout(() => {
       setControlsOpen(false);
       hideTimerRef.current = null;
-    }, HOVER_GRACE_MS);
+    }, HOVER_GRACE_MS2);
   };
   useEffect(() => () => clearHideTimer(), []);
   useEffect(() => {
@@ -3121,7 +3387,7 @@ function ImagePanel({ children, panelId = "image" }) {
     }
   );
 }
-var HOVER_GRACE_MS2 = 220;
+var HOVER_GRACE_MS3 = 220;
 function ColumnIcon({ count }) {
   return /* @__PURE__ */ jsx(
     "svg",
@@ -3215,7 +3481,7 @@ function SlidersPanel({ children, panelId = "sliders" }) {
     hideTimerRef.current = setTimeout(() => {
       setControlsOpen(false);
       hideTimerRef.current = null;
-    }, HOVER_GRACE_MS2);
+    }, HOVER_GRACE_MS3);
   };
   useEffect(() => () => clearHideTimer(), []);
   useEffect(() => {
@@ -4099,6 +4365,6 @@ function mergePanelSizes(sizes, overrides) {
   return merged;
 }
 
-export { BUTTON_ELLIPSE_HEIGHT, BUTTON_ELLIPSE_WIDTH, BUTTON_TEXT_LG, Button, ButtonEllipseVisual, CANVAS_RESOLUTION_SCALES, CanvasResolutionControl, CreativeCanvas, DEFAULT_CANVAS_RESOLUTION_SCALE, DEFAULT_IMAGE_MODULES, DEFAULT_PRISMATIC_CONFIG, DEFAULT_PRISMATIC_PALETTE, DEFAULT_PRISMATIC_PALETTE_BLEND_MODES, DEFAULT_PRISMATIC_THEME, DEFAULT_PRISMATIC_THEME_BLEND_MODES, DEFAULT_SLIDER_COLUMNS, FloatingHelp, IMAGE_DESIGN_SIZE, IMAGE_PREVIEW_MODULES, ImageComponent, ImagePanel, LAYOUT_GAP, MODULE, PRISMATIC_BLEND_MODES, PRISMATIC_COLOR_MODES, PRISMATIC_COLOR_MODE_THEMES, PRISMATIC_CORNERS_CANVAS_FRAME_CLASS, PRISMATIC_CORNERS_CLASS, PRISMATIC_CORNERS_INNER_CLASS, PRISMATIC_CORNERS_INNER_SM_CLASS, PRISMATIC_PALETTE_TOKEN_KEYS, PRISMATIC_PALETTE_TOKEN_LABELS, PRISMATIC_THEME_CSS_VARS, PRISMATIC_THEME_PRESETS, PrismaticProvider, Radio, SLIDER_COUNT, Slider, SlidersPanel, WorkspaceDebugOverlay, WorkspaceGroup, WorkspacePanel, WorkspaceShell, chunkIntoColumns, clampCanvasResolutionScale, clampImageModules, clampSliderColumns, clampToWorkspaceBounds, collectCanvasPanSnapTargets, collectSnapTargets, collectWorkspaceSnapLines, columnCountFromWidth, createGridLayout, createPrismaticStore, deriveThemeFromPalette, findAutoPlacedPosition, findShortcutsPosition, formatCanvasResolutionScale, formatPrismaticThemeCss, getActiveCanvasSnapLines, getActiveDistributionGuides, getActiveVisualSnapLines, getCanvasScreenRect, getCanvasSnapTargetIds, getRuntimePalette, getRuntimeTheme, getRuntimeThemeBlendModes, getSnapTargetIds, getWindowMarginRect, imageComponentMetrics, imageModulesFromSize, imagePanelSize, imagePreviewSizePx, isSnapParticipant, isSnappedToTopMargin, isUiPositionClear, layoutGap, mergePanelSizes, moduleSize, moduleSpanPx, normalizeThemeInput, parseColor, resolveCanvasResolutionSize, resolvePrismaticConfig, resolvePrismaticPalette, resolvePrismaticTheme, samePanelIds, sameUiGroupIds, sliderColumnWidthPx, slidersPanelSize, snapCanvasPan, snapPosition, snapScalar, snapThreshold, useImagePanelSize, usePanelPosition, usePrismaticStore, useWorkspaceGroup, useWorkspaceMode, useWorkspacePanel, windowMargin };
+export { APP_TITLE_TEXT_LG, APP_TITLE_TEXT_SM, AppTitle, AppTitlePanel, BUTTON_ELLIPSE_HEIGHT, BUTTON_ELLIPSE_WIDTH, BUTTON_TEXT_LG, Button, ButtonEllipseVisual, CANVAS_RESOLUTION_SCALES, CanvasResolutionControl, CreativeCanvas, DEFAULT_CANVAS_RESOLUTION_SCALE, DEFAULT_IMAGE_MODULES, DEFAULT_PRISMATIC_CONFIG, DEFAULT_PRISMATIC_PALETTE, DEFAULT_PRISMATIC_PALETTE_BLEND_MODES, DEFAULT_PRISMATIC_THEME, DEFAULT_PRISMATIC_THEME_BLEND_MODES, DEFAULT_SLIDER_COLUMNS, FloatingHelp, IMAGE_DESIGN_SIZE, IMAGE_PREVIEW_MODULES, ImageComponent, ImagePanel, LAYOUT_GAP, MODULE, PRISMATIC_BLEND_MODES, PRISMATIC_COLOR_MODES, PRISMATIC_COLOR_MODE_THEMES, PRISMATIC_CORNERS_CANVAS_FRAME_CLASS, PRISMATIC_CORNERS_CLASS, PRISMATIC_CORNERS_INNER_CLASS, PRISMATIC_CORNERS_INNER_SM_CLASS, PRISMATIC_PALETTE_TOKEN_KEYS, PRISMATIC_PALETTE_TOKEN_LABELS, PRISMATIC_THEME_CSS_VARS, PRISMATIC_THEME_PRESETS, PrismaticProvider, Radio, SLIDER_COUNT, Slider, SlidersPanel, WorkspaceDebugOverlay, WorkspaceGroup, WorkspacePanel, WorkspaceShell, chunkIntoColumns, clampCanvasResolutionScale, clampImageModules, clampSliderColumns, clampToWorkspaceBounds, collectCanvasPanSnapTargets, collectSnapTargets, collectWorkspaceSnapLines, columnCountFromWidth, createGridLayout, createPrismaticStore, deriveThemeFromPalette, findAutoPlacedPosition, findShortcutsPosition, formatCanvasResolutionScale, formatPrismaticThemeCss, getActiveCanvasSnapLines, getActiveDistributionGuides, getActiveVisualSnapLines, getCanvasScreenRect, getCanvasSnapTargetIds, getRuntimePalette, getRuntimeTheme, getRuntimeThemeBlendModes, getSnapTargetIds, getWindowMarginRect, imageComponentMetrics, imageModulesFromSize, imagePanelSize, imagePreviewSizePx, isSnapParticipant, isSnappedToTopMargin, isUiPositionClear, layoutGap, mergePanelSizes, moduleSize, moduleSpanPx, normalizeThemeInput, parseColor, resolveCanvasResolutionSize, resolvePrismaticConfig, resolvePrismaticPalette, resolvePrismaticTheme, samePanelIds, sameUiGroupIds, sliderColumnWidthPx, slidersPanelSize, snapCanvasPan, snapPosition, snapScalar, snapThreshold, useImagePanelSize, usePanelPosition, usePrismaticStore, useWorkspaceGroup, useWorkspaceMode, useWorkspacePanel, windowMargin };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map

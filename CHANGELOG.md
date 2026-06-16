@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.5 — 2026-06-16
+
+### Added
+
+- `AppTitle` identity primitive with small default sizing and proportional logo support
+- `AppTitlePanel` workspace wrapper with `S` / `M` title-size controls and resize handle
+- Playground app title lockup in both sidebar chrome and the draggable workspace area
+
 ## 0.2.4 — 2026-06-16
 
 ### Added

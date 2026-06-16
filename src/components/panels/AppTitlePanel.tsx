@@ -1,92 +1,64 @@
 import {
-  createContext,
-  useContext,
   useEffect,
   useRef,
   useState,
   type PointerEvent,
-  type ReactNode,
 } from "react"
 import { usePrismaticStore } from "../../hooks/usePrismaticStore"
 import {
-  imageModulesFromSize,
-  imagePanelSize,
-  imagePreviewModulesList,
-  imagePreviewSizePx,
-} from "../../workspace/imageLayout"
+  AppTitle,
+  type AppTitleProps,
+  type AppTitleSize,
+} from "../AppTitle"
 import { useWorkspacePanel } from "../WorkspacePanel"
 
-const ImagePanelSizeContext = createContext<number | null>(null)
-
-/** Pixel side length when `ImageComponent` is rendered inside `ImagePanel`. */
-export function useImagePanelSize() {
-  return useContext(ImagePanelSizeContext)
-}
-
 const HOVER_GRACE_MS = 220
+const DEFAULT_TITLE_SIZES = ["small", "large"] as const satisfies readonly AppTitleSize[]
+const RESIZE_STEP_PX = 48
 
-type ImageSizeToolbarProps = {
-  modules: number
-  onChange: (modules: number) => void
+type ResizeStart = {
+  x: number
+  size: AppTitleSize
 }
 
-function SizeIcon({ modules, maxModules }: { modules: number; maxModules: number }) {
-  const fill = Math.min(modules, maxModules) / maxModules
-  const inset = (1 - fill) * 5
-
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
-      fill="none"
-      aria-hidden
-      className="opacity-80"
-    >
-      <rect
-        x={1 + inset}
-        y={1 + inset}
-        width={12 - inset * 2}
-        height={12 - inset * 2}
-        rx="2"
-        fill="currentColor"
-      />
-    </svg>
-  )
+function clampIndex(index: number, max: number) {
+  return Math.max(0, Math.min(max, index))
 }
 
-function ImageSizeToolbar({ modules, onChange }: ImageSizeToolbarProps) {
-  const allowed = [...imagePreviewModulesList()]
-  const maxModules = allowed[allowed.length - 1] ?? 6
-  const labels = ["S", "M", "L"]
-
+function TitleSizeToolbar({
+  size,
+  options,
+  onChange,
+}: {
+  size: AppTitleSize
+  options: readonly AppTitleSize[]
+  onChange: (size: AppTitleSize) => void
+}) {
   return (
     <div
       className="workspace-controls prismatic-bg-overlay prismatic-text-primary flex items-center gap-0.5 rounded-full p-0.5 shadow-lg backdrop-blur-sm"
       role="toolbar"
-      aria-label="Preview size"
+      aria-label="Title size"
     >
-      {allowed.map((count, index) => {
-        const active = count === modules
-        const px = imagePreviewSizePx(count)
-        const label = labels[index] ?? String(count)
+      {options.map((option) => {
+        const active = option === size
+        const label = option === "small" ? "S" : "M"
         return (
           <button
-            key={count}
+            key={option}
             type="button"
-            title={`${px}px preview`}
+            title={`${option} title`}
             aria-pressed={active}
             className={[
-              "flex items-center gap-1 rounded-full px-2 py-1 text-[10px] transition-colors",
+              "rounded-full px-2 py-1 text-[10px] transition-colors",
               active
                 ? "prismatic-bg-surface-active prismatic-text-on-active"
                 : "prismatic-text-primary hover:prismatic-bg-border-subtle",
             ].join(" ")}
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => onChange(count)}
+            onClick={() => onChange(option)}
           >
-            <SizeIcon modules={count} maxModules={maxModules} />
-            <span>{label}</span>
+            {label}
           </button>
         )
       })}
@@ -94,29 +66,58 @@ function ImageSizeToolbar({ modules, onChange }: ImageSizeToolbarProps) {
   )
 }
 
-type ImagePanelProps = {
-  children: ReactNode
+export type AppTitlePanelProps = AppTitleProps & {
   panelId?: string
+  defaultSize?: AppTitleSize
+  sizeOptions?: readonly AppTitleSize[]
+  onSizeChange?: (size: AppTitleSize) => void
 }
 
-export function ImagePanel({ children, panelId = "image" }: ImagePanelProps) {
+export function AppTitlePanel({
+  panelId,
+  size,
+  defaultSize = "small",
+  sizeOptions = DEFAULT_TITLE_SIZES,
+  onSizeChange,
+  ...titleProps
+}: AppTitlePanelProps) {
   const useStore = usePrismaticStore()
   const workspaceMode = useStore((s) => s.workspaceMode)
-  const imageModules = useStore((s) => s.imagePreviewModules)
-  const setImagePreviewModules = useStore((s) => s.setImagePreviewModules)
   const setUiGroupSize = useStore((s) => s.setUiGroupSize)
-
   const workspacePanel = useWorkspacePanel()
-  const resizeStartRef = useRef<{ x: number; size: number } | null>(null)
+  const resolvedPanelId = panelId ?? workspacePanel?.id ?? "app-title"
+
+  const rootRef = useRef<HTMLDivElement>(null)
+  const resizeStartRef = useRef<ResizeStart | null>(null)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [internalSize, setInternalSize] = useState<AppTitleSize>(defaultSize)
   const [resizing, setResizing] = useState(false)
   const [controlsOpen, setControlsOpen] = useState(false)
 
-  const panelSize = imagePanelSize(imageModules)
+  const currentSize = size ?? internalSize
+  const allowedSizes = [...sizeOptions]
+
+  const setTitleSize = (next: AppTitleSize) => {
+    if (size === undefined) setInternalSize(next)
+    onSizeChange?.(next)
+  }
 
   useEffect(() => {
-    setUiGroupSize(panelId, panelSize)
-  }, [panelId, panelSize, setUiGroupSize])
+    const el = rootRef.current
+    if (!el) return
+
+    const updateSize = () => {
+      setUiGroupSize(resolvedPanelId, {
+        width: el.offsetWidth,
+        height: el.offsetHeight,
+      })
+    }
+
+    updateSize()
+    const observer = new ResizeObserver(updateSize)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [resolvedPanelId, currentSize, setUiGroupSize])
 
   const clearHideTimer = () => {
     if (hideTimerRef.current) {
@@ -149,7 +150,7 @@ export function ImagePanel({ children, panelId = "image" }: ImagePanelProps) {
   }, [workspaceMode])
 
   const panelHovered =
-    workspacePanel?.id === panelId && workspacePanel.hovered
+    workspacePanel?.id === resolvedPanelId && workspacePanel.hovered
 
   useEffect(() => {
     if (workspaceMode && panelHovered) openControls()
@@ -157,10 +158,16 @@ export function ImagePanel({ children, panelId = "image" }: ImagePanelProps) {
 
   const onResizePointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (!workspaceMode || e.button !== 0) return
+    const el = rootRef.current
+    if (!el) return
+
     e.preventDefault()
     e.stopPropagation()
     openControls()
-    resizeStartRef.current = { x: e.clientX, size: panelSize.width }
+    resizeStartRef.current = {
+      x: e.clientX,
+      size: currentSize,
+    }
     setResizing(true)
     e.currentTarget.setPointerCapture(e.pointerId)
   }
@@ -168,8 +175,15 @@ export function ImagePanel({ children, panelId = "image" }: ImagePanelProps) {
   const onResizePointerMove = (e: PointerEvent<HTMLDivElement>) => {
     if (!resizing || !resizeStartRef.current) return
     const delta = e.clientX - resizeStartRef.current.x
-    const nextSize = resizeStartRef.current.size + delta
-    setImagePreviewModules(imageModulesFromSize(nextSize))
+    const startIndex = Math.max(
+      0,
+      allowedSizes.indexOf(resizeStartRef.current.size),
+    )
+    const nextIndex = clampIndex(
+      startIndex + Math.round(delta / RESIZE_STEP_PX),
+      allowedSizes.length - 1,
+    )
+    setTitleSize(allowedSizes[nextIndex] ?? currentSize)
   }
 
   const finishResize = (e: PointerEvent<HTMLDivElement>) => {
@@ -183,46 +197,42 @@ export function ImagePanel({ children, panelId = "image" }: ImagePanelProps) {
 
   return (
     <div
-      className="workspace-hover-zone relative"
+      className="workspace-hover-zone relative w-fit"
       onMouseEnter={openControls}
       onMouseLeave={scheduleCloseControls}
     >
-      <div
-        className={[
-          "workspace-panel relative transition-[width,height] duration-200 ease-out",
-          workspaceMode ? "pointer-events-none" : "",
-        ].join(" ")}
-        style={panelSize}
-      >
-        <ImagePanelSizeContext.Provider value={panelSize.width}>
-          <div className="flex size-full items-center justify-center">{children}</div>
-        </ImagePanelSizeContext.Provider>
+      <div ref={rootRef} className="workspace-panel relative w-fit">
+        <AppTitle {...titleProps} size={currentSize} />
 
         {showControls && (
-          <div className="workspace-controls pointer-events-auto absolute left-1 top-1 z-30">
-            <ImageSizeToolbar modules={imageModules} onChange={setImagePreviewModules} />
+          <div className="workspace-controls pointer-events-auto absolute left-0 -top-9 z-30">
+            <TitleSizeToolbar
+              size={currentSize}
+              options={allowedSizes}
+              onChange={setTitleSize}
+            />
           </div>
         )}
 
         {workspaceMode && (
           <div
             className={[
-              "workspace-controls absolute -right-1.5 -bottom-1.5 z-10 size-4 cursor-nwse-resize transition-opacity duration-150",
+              "workspace-controls absolute -right-1.5 -bottom-1.5 z-10 size-4 cursor-ew-resize transition-opacity duration-150",
               showControls ? "opacity-100" : "opacity-0",
             ].join(" ")}
             onPointerDown={onResizePointerDown}
             onPointerMove={onResizePointerMove}
             onPointerUp={finishResize}
             onPointerCancel={finishResize}
-            aria-label="Resize preview"
+            aria-label="Resize title"
           >
             <div className="absolute right-0.5 bottom-0.5 size-2 rounded-sm border-r border-b border-[var(--prismatic-accent-stroke)] opacity-70" />
           </div>
         )}
 
         {workspaceMode && resizing && (
-          <div className="workspace-controls prismatic-bg-overlay prismatic-text-primary pointer-events-none absolute bottom-1 left-1/2 z-30 -translate-x-1/2 rounded-full px-2 py-0.5 text-[10px] lowercase backdrop-blur-sm">
-            {panelSize.width}px
+          <div className="workspace-controls prismatic-bg-overlay prismatic-text-primary pointer-events-none absolute bottom-[-30px] left-1/2 z-30 -translate-x-1/2 rounded-full px-2 py-0.5 text-[10px] lowercase backdrop-blur-sm">
+            {currentSize === "small" ? "S" : "M"}
           </div>
         )}
       </div>

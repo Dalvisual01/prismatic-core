@@ -238,7 +238,28 @@ working resolution is half or quarter.
 
 ## UI primitives
 
-`Slider`, `Button`, `Radio`, `ImageComponent` — styled controls for generative tool UIs.
+`Slider`, `Button`, `Radio`, `ImageComponent`, `AppTitle`, `AppTitlePanel` —
+styled controls and identity primitives for generative tool UIs.
+
+Use `AppTitle` to show the app name in the workspace or surrounding chrome. The
+small title style is the default; pass `size="large"` only when the title should
+take more visual weight. Logo images keep their proportions and follow the text
+block height for the selected size. Pass `subtitle` for a stacked title/byline
+lockup.
+
+Use `AppTitlePanel` inside `WorkspacePanel` when the title should be resizable in
+workspace mode. It adds the same hover controls and resize handle pattern as
+`ImagePanel`, but exposes only `S` and `M` size choices.
+
+```tsx
+import { AppTitle, AppTitlePanel, WorkspacePanel } from "@prismatic/core"
+
+<AppTitle title="dopelganger" subtitle="by 5heads" logoSrc="/logo.svg" />
+
+<WorkspacePanel id="title">
+  <AppTitlePanel title="dopelganger" subtitle="by 5heads" logoSrc="/logo.svg" />
+</WorkspacePanel>
+```
 
 Optional asset props for app-specific SVGs:
 
