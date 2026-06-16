@@ -31,7 +31,11 @@ export function PrismaticProvider({
   storeInit,
   children,
 }: PrismaticProviderProps) {
-  const resolvedConfig = useMemo(() => resolvePrismaticConfig(config), [config])
+  const resolvedConfig = useMemo(() => {
+    const resolved = resolvePrismaticConfig(config)
+    setRuntimeConfig(resolved)
+    return resolved
+  }, [config])
   const themeStyle = useMemo(
     () =>
       prismaticThemeToCssProperties(
@@ -46,10 +50,6 @@ export function PrismaticProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   )
-
-  useEffect(() => {
-    setRuntimeConfig(resolvedConfig)
-  }, [resolvedConfig])
 
   useEffect(() => {
     const root = document.documentElement

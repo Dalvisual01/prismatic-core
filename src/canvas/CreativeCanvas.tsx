@@ -17,6 +17,11 @@ import {
 import { samePanelIds } from "../workspace/snap"
 import type { PanelId } from "../workspace/types"
 import { PRISMATIC_SURFACE_FRAME_STYLE } from "../theme/tokens"
+import {
+  resolveCanvasResolutionSize,
+  type CanvasResolutionScale,
+  type CanvasResolutionSize,
+} from "./resolution"
 import type { P5WithSketch, PreviewKind, SketchFactory } from "./types"
 
 export type CreativeCanvasHandle = {
@@ -66,16 +71,62 @@ const ZOOM_SETTLE_EPS = 0.004
 
 const easeOutQuad = (t: number) => t * (2 - t)
 
+type SourceRef = {
+  url: string
+  kind: PreviewKind
+}
+
+type P5CanvasInstance = P5WithSketch & {
+  canvas?: HTMLCanvasElement
+}
+
+type P5RendererWithElement = p5.Renderer & {
+  elt?: HTMLCanvasElement
+}
+
+function applyCanvasDisplaySize(
+  p: P5CanvasInstance,
+  renderer: p5.Renderer | undefined,
+  size: CanvasResolutionSize,
+) {
+  const canvas =
+    (renderer as P5RendererWithElement | undefined)?.elt ?? p.canvas
+  if (!canvas) return
+
+  canvas.style.width = `${size.logicalWidth}px`
+  canvas.style.height = `${size.logicalHeight}px`
+  canvas.dataset.prismaticResolutionScale = String(size.scale)
+}
+
+function scaleSourceImage(
+  p: P5WithSketch,
+  img: p5.Image,
+  scale: CanvasResolutionScale,
+) {
+  if (scale >= 1) return img
+
+  const width = Math.max(1, Math.round(img.width * scale))
+  const height = Math.max(1, Math.round(img.height * scale))
+  if (width === img.width && height === img.height) return img
+
+  const scaled = p.createImage(width, height)
+  scaled.copy(img, 0, 0, img.width, img.height, 0, 0, width, height)
+  return scaled
+}
+
 export const CreativeCanvas = forwardRef<CreativeCanvasHandle, CreativeCanvasProps>(
   function CreativeCanvas({ createSketch }, ref) {
     const useStore = usePrismaticStore()
     const workspaceMode = useStore((s) => s.workspaceMode)
+    const canvasResolutionScale = useStore((s) => s.canvasResolutionScale)
     const toggleWorkspaceMode = useStore((s) => s.toggleWorkspaceMode)
     const workspaceModeRef = useRef(false)
 
     const outerRef = useRef<HTMLDivElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
     const pInstRef = useRef<P5WithSketch | null>(null)
+    const sourceRef = useRef<SourceRef | null>(null)
+    const imageLoadTokenRef = useRef(0)
     const createSketchRef = useRef(createSketch)
     createSketchRef.current = createSketch
 
@@ -99,6 +150,26 @@ export const CreativeCanvas = forwardRef<CreativeCanvasHandle, CreativeCanvasPro
 
     const canvasConfig = () => getRuntimeConfig().canvas
     const shortcutsConfig = () => getRuntimeConfig().shortcuts
+
+    const loadImageSource = useCallback(
+      (url: string) => {
+        const p = pInstRef.current
+        if (!p) return
+
+        const token = ++imageLoadTokenRef.current
+        p.loadImage(
+          url,
+          (img) => {
+            if (token !== imageLoadTokenRef.current) return
+            const scale = p.getPrismaticResolutionScale?.() ??
+              useStore.getState().canvasResolutionScale
+            p.updateImage?.(scaleSourceImage(p, img, scale))
+          },
+          () => console.error("Failed to load image"),
+        )
+      },
+      [useStore],
+    )
 
     const cancelPanRaf = useCallback(() => {
       if (panRafRef.current) {
@@ -284,18 +355,15 @@ export const CreativeCanvas = forwardRef<CreativeCanvasHandle, CreativeCanvasPro
         const p = pInstRef.current
         if (!p) return
 
+        sourceRef.current = { url, kind }
+
         if (kind === "video") {
+          imageLoadTokenRef.current += 1
           p.updateVideo?.(url)
           return
         }
 
-        p.loadImage(
-          url,
-          (img) => {
-            p.updateImage?.(img)
-          },
-          () => console.error("Failed to load image"),
-        )
+        loadImageSource(url)
       },
       saveCanvas: (filename?: string) => {
         const p = pInstRef.current
@@ -308,16 +376,46 @@ export const CreativeCanvas = forwardRef<CreativeCanvasHandle, CreativeCanvasPro
           | HTMLCanvasElement
           | undefined
           | null
+        const downloadDataUrl = (dataUrl: string) => {
+          const a = document.createElement("a")
+          a.href = dataUrl
+          a.download = `${name}.png`
+          document.body.appendChild(a)
+          a.click()
+          a.remove()
+        }
+        const saveCurrentCanvas = () => {
+          if (canvasEl) {
+            const dataUrl = canvasEl.toDataURL("image/png")
+            downloadDataUrl(dataUrl)
+          } else {
+            p.saveCanvas(name, "png")
+          }
+        }
 
         if (canvasEl) {
+          const exportFullResolution = p.exportPrismaticCanvasDataUrl
+          if (exportFullResolution) {
+            void exportFullResolution()
+              .then((dataUrl) => {
+                if (!dataUrl) {
+                  saveCurrentCanvas()
+                  return
+                }
+                downloadDataUrl(dataUrl)
+              })
+              .catch((error) => {
+                console.warn(
+                  "Full-resolution canvas export failed, falling back to current canvas:",
+                  error,
+                )
+                saveCurrentCanvas()
+              })
+            return
+          }
+
           try {
-            const dataUrl = canvasEl.toDataURL("image/png")
-            const a = document.createElement("a")
-            a.href = dataUrl
-            a.download = `${name}.png`
-            document.body.appendChild(a)
-            a.click()
-            a.remove()
+            saveCurrentCanvas()
             return
           } catch (error) {
             console.warn("Canvas download failed, falling back to p5:", error)
@@ -334,6 +432,120 @@ export const CreativeCanvas = forwardRef<CreativeCanvasHandle, CreativeCanvasPro
       if (!el) return
 
       const instance = new p5((p: P5WithSketch) => {
+        const canvasP = p as P5CanvasInstance
+        const originalCreateCanvas = p.createCanvas.bind(p) as (
+          width: number,
+          height: number,
+          ...rest: unknown[]
+        ) => p5.Renderer
+        const originalResizeCanvas = p.resizeCanvas.bind(p) as (
+          width: number,
+          height: number,
+          noRedraw?: boolean,
+        ) => void
+        const nativeResizeCanvas = p.resizeCanvas
+        let resizeCanvasOverride: P5WithSketch["resizeCanvas"] | null = null
+        let logicalCanvasSize: { width: number; height: number } | null = null
+        let resolutionScaleOverride: CanvasResolutionScale | null = null
+
+        const currentScale = () =>
+          resolutionScaleOverride ?? useStore.getState().canvasResolutionScale
+        const resolveSize = (width: number, height: number) =>
+          resolveCanvasResolutionSize(width, height, currentScale())
+        const loadImageAtScale = (
+          url: string,
+          scale: CanvasResolutionScale,
+        ) =>
+          new Promise<void>((resolve) => {
+            p.loadImage(
+              url,
+              (img) => {
+                p.updateImage?.(scaleSourceImage(p, img, scale))
+                resolve()
+              },
+              () => {
+                console.error("Failed to load image")
+                resolve()
+              },
+            )
+          })
+        const setPixelDensity = (scale: CanvasResolutionScale) => {
+          const activeResizeCanvas = p.resizeCanvas
+          if (resizeCanvasOverride && activeResizeCanvas === resizeCanvasOverride) {
+            p.resizeCanvas = nativeResizeCanvas
+          }
+
+          try {
+            p.pixelDensity(scale)
+          } finally {
+            if (resizeCanvasOverride && p.resizeCanvas === nativeResizeCanvas) {
+              p.resizeCanvas = resizeCanvasOverride
+            }
+          }
+        }
+
+        p.getPrismaticResolutionScale = currentScale
+        p.getPrismaticCanvasSize = resolveSize
+        p.resizePrismaticCanvas = () => {
+          if (!logicalCanvasSize) return
+          const size = resolveSize(
+            logicalCanvasSize.width,
+            logicalCanvasSize.height,
+          )
+          setPixelDensity(size.scale)
+          originalResizeCanvas(size.logicalWidth, size.logicalHeight)
+          applyCanvasDisplaySize(canvasP, undefined, size)
+        }
+        p.exportPrismaticCanvasDataUrl = async () => {
+          if (!logicalCanvasSize) return null
+
+          imageLoadTokenRef.current += 1
+          resolutionScaleOverride = 1
+          try {
+            p.resizePrismaticCanvas?.()
+
+            const source = sourceRef.current
+            if (source?.kind === "image") {
+              await loadImageAtScale(source.url, 1)
+            }
+
+            p.redraw?.()
+            const canvas = canvasP.canvas
+            return canvas?.toDataURL("image/png") ?? null
+          } finally {
+            resolutionScaleOverride = null
+            p.resizePrismaticCanvas?.()
+
+            const source = sourceRef.current
+            if (source?.kind === "image") {
+              loadImageSource(source.url)
+            }
+          }
+        }
+
+        p.createCanvas = ((width: number, height: number, ...rest: unknown[]) => {
+          logicalCanvasSize = { width, height }
+          const size = resolveSize(width, height)
+          setPixelDensity(size.scale)
+          const renderer = originalCreateCanvas(
+            size.logicalWidth,
+            size.logicalHeight,
+            ...rest,
+          )
+          applyCanvasDisplaySize(canvasP, renderer, size)
+          return renderer
+        }) as P5WithSketch["createCanvas"]
+
+        const resizeCanvas = ((width: number, height: number, noRedraw?: boolean) => {
+          logicalCanvasSize = { width, height }
+          const size = resolveSize(width, height)
+          setPixelDensity(size.scale)
+          originalResizeCanvas(size.logicalWidth, size.logicalHeight, noRedraw)
+          applyCanvasDisplaySize(canvasP, undefined, size)
+        }) as P5WithSketch["resizeCanvas"]
+        resizeCanvasOverride = resizeCanvas
+        p.resizeCanvas = resizeCanvas
+
         createSketchRef.current(p)
         pInstRef.current = p
       }, el)
@@ -343,6 +555,18 @@ export const CreativeCanvas = forwardRef<CreativeCanvasHandle, CreativeCanvasPro
         instance.remove()
       }
     }, [])
+
+    useEffect(() => {
+      const p = pInstRef.current
+      if (!p) return
+
+      p.resizePrismaticCanvas?.()
+
+      const source = sourceRef.current
+      if (source?.kind === "image") {
+        loadImageSource(source.url)
+      }
+    }, [canvasResolutionScale, loadImageSource])
 
     useEffect(() => {
       const el = outerRef.current

@@ -452,6 +452,30 @@ function getRuntimeConfig() {
   return runtimeConfig;
 }
 
+// src/canvas/resolution.ts
+var CANVAS_RESOLUTION_SCALES = [1, 0.5, 0.25];
+var DEFAULT_CANVAS_RESOLUTION_SCALE = 1;
+function clampCanvasResolutionScale(scale) {
+  if (scale == null || !Number.isFinite(scale)) return DEFAULT_CANVAS_RESOLUTION_SCALE;
+  return CANVAS_RESOLUTION_SCALES.reduce(
+    (closest, candidate) => Math.abs(candidate - scale) < Math.abs(closest - scale) ? candidate : closest
+  );
+}
+function resolveCanvasResolutionSize(logicalWidth, logicalHeight, scale) {
+  return {
+    scale,
+    logicalWidth,
+    logicalHeight,
+    pixelWidth: Math.max(1, Math.round(logicalWidth * scale)),
+    pixelHeight: Math.max(1, Math.round(logicalHeight * scale))
+  };
+}
+function formatCanvasResolutionScale(scale) {
+  if (scale === 1) return "full";
+  if (scale === 0.5) return "half";
+  return "quarter";
+}
+
 // src/workspace/modules.ts
 function layoutGap() {
   return getRuntimeConfig().workspace.layoutGap;
@@ -607,6 +631,7 @@ var snapFlashTimer = null;
 function createPrismaticStore(init = {}) {
   const sliderColumns = init.sliderColumnCount ?? defaultSliderColumns();
   const imageModules = init.imagePreviewModules ?? defaultImageModules();
+  const resolutionScale = init.canvasResolutionScale ?? DEFAULT_CANVAS_RESOLUTION_SCALE;
   return zustand.create((set) => ({
     workspaceMode: init.workspaceMode ?? false,
     uiPositions: init.initialPositions ?? {},
@@ -616,6 +641,7 @@ function createPrismaticStore(init = {}) {
     snapFlashIds: [],
     sliderColumnCount: sliderColumns,
     imagePreviewModules: imageModules,
+    canvasResolutionScale: clampCanvasResolutionScale(resolutionScale),
     toggleWorkspaceMode: () => set((s) => ({ workspaceMode: !s.workspaceMode })),
     setWorkspaceMode: (enabled) => set({ workspaceMode: enabled }),
     setUiGroupSize: (id, size) => set((s) => ({
@@ -656,6 +682,7 @@ function createPrismaticStore(init = {}) {
         }
       }));
     },
+    setCanvasResolutionScale: (scale) => set({ canvasResolutionScale: clampCanvasResolutionScale(scale) }),
     initializeLayout: (positions, sizes) => set({ uiPositions: positions, uiSizes: sizes })
   }));
 }
@@ -665,7 +692,11 @@ function PrismaticProvider({
   storeInit,
   children
 }) {
-  const resolvedConfig = react.useMemo(() => resolvePrismaticConfig(config), [config]);
+  const resolvedConfig = react.useMemo(() => {
+    const resolved = resolvePrismaticConfig(config);
+    setRuntimeConfig(resolved);
+    return resolved;
+  }, [config]);
   const themeStyle = react.useMemo(
     () => prismaticThemeToCssProperties(
       resolvedConfig.theme,
@@ -678,9 +709,6 @@ function PrismaticProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
-  react.useEffect(() => {
-    setRuntimeConfig(resolvedConfig);
-  }, [resolvedConfig]);
   react.useEffect(() => {
     const root = document.documentElement;
     const previous = /* @__PURE__ */ new Map();
@@ -1482,15 +1510,34 @@ var ZOOM_DIST_REF = 0.22;
 var ZOOM_MAX_STEP = 0.042;
 var ZOOM_SETTLE_EPS = 4e-3;
 var easeOutQuad = (t) => t * (2 - t);
+function applyCanvasDisplaySize(p, renderer, size) {
+  const canvas = renderer?.elt ?? p.canvas;
+  if (!canvas) return;
+  canvas.style.width = `${size.logicalWidth}px`;
+  canvas.style.height = `${size.logicalHeight}px`;
+  canvas.dataset.prismaticResolutionScale = String(size.scale);
+}
+function scaleSourceImage(p, img, scale) {
+  if (scale >= 1) return img;
+  const width = Math.max(1, Math.round(img.width * scale));
+  const height = Math.max(1, Math.round(img.height * scale));
+  if (width === img.width && height === img.height) return img;
+  const scaled = p.createImage(width, height);
+  scaled.copy(img, 0, 0, img.width, img.height, 0, 0, width, height);
+  return scaled;
+}
 var CreativeCanvas = react.forwardRef(
   function CreativeCanvas2({ createSketch }, ref) {
     const useStore = usePrismaticStore();
     const workspaceMode = useStore((s) => s.workspaceMode);
+    const canvasResolutionScale = useStore((s) => s.canvasResolutionScale);
     const toggleWorkspaceMode = useStore((s) => s.toggleWorkspaceMode);
     const workspaceModeRef = react.useRef(false);
     const outerRef = react.useRef(null);
     const containerRef = react.useRef(null);
     const pInstRef = react.useRef(null);
+    const sourceRef = react.useRef(null);
+    const imageLoadTokenRef = react.useRef(0);
     const createSketchRef = react.useRef(createSketch);
     createSketchRef.current = createSketch;
     const panRef = react.useRef({ x: 0, y: 0 });
@@ -1509,6 +1556,23 @@ var CreativeCanvas = react.forwardRef(
     const lastCanvasSnapTargetsRef = react.useRef([]);
     const canvasConfig = () => getRuntimeConfig().canvas;
     const shortcutsConfig = () => getRuntimeConfig().shortcuts;
+    const loadImageSource = react.useCallback(
+      (url) => {
+        const p = pInstRef.current;
+        if (!p) return;
+        const token = ++imageLoadTokenRef.current;
+        p.loadImage(
+          url,
+          (img) => {
+            if (token !== imageLoadTokenRef.current) return;
+            const scale = p.getPrismaticResolutionScale?.() ?? useStore.getState().canvasResolutionScale;
+            p.updateImage?.(scaleSourceImage(p, img, scale));
+          },
+          () => console.error("Failed to load image")
+        );
+      },
+      [useStore]
+    );
     const cancelPanRaf = react.useCallback(() => {
       if (panRafRef.current) {
         cancelAnimationFrame(panRafRef.current);
@@ -1666,17 +1730,13 @@ var CreativeCanvas = react.forwardRef(
       loadSource: (url, kind) => {
         const p = pInstRef.current;
         if (!p) return;
+        sourceRef.current = { url, kind };
         if (kind === "video") {
+          imageLoadTokenRef.current += 1;
           p.updateVideo?.(url);
           return;
         }
-        p.loadImage(
-          url,
-          (img) => {
-            p.updateImage?.(img);
-          },
-          () => console.error("Failed to load image")
-        );
+        loadImageSource(url);
       },
       saveCanvas: (filename) => {
         const p = pInstRef.current;
@@ -1686,15 +1746,42 @@ var CreativeCanvas = react.forwardRef(
         const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
         const name = filename ?? `${prefix}_${timestamp}`;
         const canvasEl = container?.querySelector("canvas");
-        if (canvasEl) {
-          try {
+        const downloadDataUrl = (dataUrl) => {
+          const a = document.createElement("a");
+          a.href = dataUrl;
+          a.download = `${name}.png`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        };
+        const saveCurrentCanvas = () => {
+          if (canvasEl) {
             const dataUrl = canvasEl.toDataURL("image/png");
-            const a = document.createElement("a");
-            a.href = dataUrl;
-            a.download = `${name}.png`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
+            downloadDataUrl(dataUrl);
+          } else {
+            p.saveCanvas(name, "png");
+          }
+        };
+        if (canvasEl) {
+          const exportFullResolution = p.exportPrismaticCanvasDataUrl;
+          if (exportFullResolution) {
+            void exportFullResolution().then((dataUrl) => {
+              if (!dataUrl) {
+                saveCurrentCanvas();
+                return;
+              }
+              downloadDataUrl(dataUrl);
+            }).catch((error) => {
+              console.warn(
+                "Full-resolution canvas export failed, falling back to current canvas:",
+                error
+              );
+              saveCurrentCanvas();
+            });
+            return;
+          }
+          try {
+            saveCurrentCanvas();
             return;
           } catch (error) {
             console.warn("Canvas download failed, falling back to p5:", error);
@@ -1709,6 +1796,96 @@ var CreativeCanvas = react.forwardRef(
       const el = containerRef.current;
       if (!el) return;
       const instance = new p5__default.default((p) => {
+        const canvasP = p;
+        const originalCreateCanvas = p.createCanvas.bind(p);
+        const originalResizeCanvas = p.resizeCanvas.bind(p);
+        const nativeResizeCanvas = p.resizeCanvas;
+        let resizeCanvasOverride = null;
+        let logicalCanvasSize = null;
+        let resolutionScaleOverride = null;
+        const currentScale = () => resolutionScaleOverride ?? useStore.getState().canvasResolutionScale;
+        const resolveSize = (width, height) => resolveCanvasResolutionSize(width, height, currentScale());
+        const loadImageAtScale = (url, scale) => new Promise((resolve) => {
+          p.loadImage(
+            url,
+            (img) => {
+              p.updateImage?.(scaleSourceImage(p, img, scale));
+              resolve();
+            },
+            () => {
+              console.error("Failed to load image");
+              resolve();
+            }
+          );
+        });
+        const setPixelDensity = (scale) => {
+          const activeResizeCanvas = p.resizeCanvas;
+          if (resizeCanvasOverride && activeResizeCanvas === resizeCanvasOverride) {
+            p.resizeCanvas = nativeResizeCanvas;
+          }
+          try {
+            p.pixelDensity(scale);
+          } finally {
+            if (resizeCanvasOverride && p.resizeCanvas === nativeResizeCanvas) {
+              p.resizeCanvas = resizeCanvasOverride;
+            }
+          }
+        };
+        p.getPrismaticResolutionScale = currentScale;
+        p.getPrismaticCanvasSize = resolveSize;
+        p.resizePrismaticCanvas = () => {
+          if (!logicalCanvasSize) return;
+          const size = resolveSize(
+            logicalCanvasSize.width,
+            logicalCanvasSize.height
+          );
+          setPixelDensity(size.scale);
+          originalResizeCanvas(size.logicalWidth, size.logicalHeight);
+          applyCanvasDisplaySize(canvasP, void 0, size);
+        };
+        p.exportPrismaticCanvasDataUrl = async () => {
+          if (!logicalCanvasSize) return null;
+          imageLoadTokenRef.current += 1;
+          resolutionScaleOverride = 1;
+          try {
+            p.resizePrismaticCanvas?.();
+            const source = sourceRef.current;
+            if (source?.kind === "image") {
+              await loadImageAtScale(source.url, 1);
+            }
+            p.redraw?.();
+            const canvas = canvasP.canvas;
+            return canvas?.toDataURL("image/png") ?? null;
+          } finally {
+            resolutionScaleOverride = null;
+            p.resizePrismaticCanvas?.();
+            const source = sourceRef.current;
+            if (source?.kind === "image") {
+              loadImageSource(source.url);
+            }
+          }
+        };
+        p.createCanvas = ((width, height, ...rest) => {
+          logicalCanvasSize = { width, height };
+          const size = resolveSize(width, height);
+          setPixelDensity(size.scale);
+          const renderer = originalCreateCanvas(
+            size.logicalWidth,
+            size.logicalHeight,
+            ...rest
+          );
+          applyCanvasDisplaySize(canvasP, renderer, size);
+          return renderer;
+        });
+        const resizeCanvas = ((width, height, noRedraw) => {
+          logicalCanvasSize = { width, height };
+          const size = resolveSize(width, height);
+          setPixelDensity(size.scale);
+          originalResizeCanvas(size.logicalWidth, size.logicalHeight, noRedraw);
+          applyCanvasDisplaySize(canvasP, void 0, size);
+        });
+        resizeCanvasOverride = resizeCanvas;
+        p.resizeCanvas = resizeCanvas;
         createSketchRef.current(p);
         pInstRef.current = p;
       }, el);
@@ -1717,6 +1894,15 @@ var CreativeCanvas = react.forwardRef(
         instance.remove();
       };
     }, []);
+    react.useEffect(() => {
+      const p = pInstRef.current;
+      if (!p) return;
+      p.resizePrismaticCanvas?.();
+      const source = sourceRef.current;
+      if (source?.kind === "image") {
+        loadImageSource(source.url);
+      }
+    }, [canvasResolutionScale, loadImageSource]);
     react.useEffect(() => {
       const el = outerRef.current;
       if (!el) return;
@@ -2294,10 +2480,18 @@ function WorkspaceShell({
   children,
   showDebugOverlay = true
 }) {
-  return /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "pointer-events-none fixed inset-0 z-30", children: [
-    children,
-    showDebugOverlay && /* @__PURE__ */ jsxRuntime.jsx(WorkspaceDebugOverlay, {})
-  ] });
+  const useStore = usePrismaticStore();
+  const workspaceMode = useStore((s) => s.workspaceMode);
+  return /* @__PURE__ */ jsxRuntime.jsxs(
+    "div",
+    {
+      className: `pointer-events-none fixed inset-0 ${workspaceMode ? "z-30" : "z-10"}`,
+      children: [
+        children,
+        showDebugOverlay && /* @__PURE__ */ jsxRuntime.jsx(WorkspaceDebugOverlay, {})
+      ]
+    }
+  );
 }
 
 // src/workspace/shortcutsLayout.ts
@@ -3703,6 +3897,156 @@ function ImageComponent({
     }
   );
 }
+var SCALE_LABEL = {
+  1: "1.0\xD7",
+  0.5: "0.5\xD7",
+  0.25: "0.25\xD7"
+};
+var TOOLTIP_DELAY_MS = 1500;
+function CanvasResolutionControl({
+  label = "canvas resolution",
+  className = ""
+}) {
+  const useStore = usePrismaticStore();
+  const scale = useStore((s) => s.canvasResolutionScale);
+  const setScale = useStore((s) => s.setCanvasResolutionScale);
+  const activeIndex = Math.max(0, CANVAS_RESOLUTION_SCALES.indexOf(scale));
+  const [hoveredScale, setHoveredScale] = react.useState(
+    null
+  );
+  const [tooltipOpen, setTooltipOpen] = react.useState(false);
+  const tooltipTimerRef = react.useRef(null);
+  const clearTooltipTimer = () => {
+    if (tooltipTimerRef.current) {
+      clearTimeout(tooltipTimerRef.current);
+      tooltipTimerRef.current = null;
+    }
+  };
+  const scheduleTooltip = () => {
+    clearTooltipTimer();
+    tooltipTimerRef.current = setTimeout(() => {
+      setTooltipOpen(true);
+      tooltipTimerRef.current = null;
+    }, TOOLTIP_DELAY_MS);
+  };
+  const hideTooltip = () => {
+    clearTooltipTimer();
+    setTooltipOpen(false);
+  };
+  react.useEffect(() => () => clearTooltipTimer(), []);
+  return /* @__PURE__ */ jsxRuntime.jsxs(
+    "div",
+    {
+      className: [
+        "workspace-controls group/resolution prismatic-surface-frame relative isolate flex h-[70px] w-[70px] flex-col items-center gap-1 overflow-visible rounded-[32px] p-1 [corner-shape:squircle]",
+        className
+      ].filter(Boolean).join(" "),
+      style: PRISMATIC_SURFACE_FRAME_STYLE,
+      "data-prismatic-control": "canvas-resolution",
+      onPointerEnter: scheduleTooltip,
+      onPointerLeave: hideTooltip,
+      onFocus: scheduleTooltip,
+      onBlur: hideTooltip,
+      children: [
+        /* @__PURE__ */ jsxRuntime.jsxs(
+          "div",
+          {
+            className: [
+              "absolute left-1/2 top-[-54px] z-50 w-max max-w-[230px] -translate-x-1/2 rounded-lg bg-[#242326] px-3 py-2 shadow-lg transition-[opacity,transform] duration-150",
+              tooltipOpen ? "translate-y-[-2px] opacity-100" : "pointer-events-none opacity-0"
+            ].join(" "),
+            role: "tooltip",
+            children: [
+              /* @__PURE__ */ jsxRuntime.jsx("p", { className: "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[13px] leading-[1.1] tracking-[-0.26px] text-white", children: "export uses full resolution" }),
+              /* @__PURE__ */ jsxRuntime.jsx("div", { className: "absolute left-1/2 bottom-[-7px] h-0 w-0 -translate-x-1/2 border-l-[7px] border-r-[7px] border-t-[7px] border-l-transparent border-r-transparent border-t-[#242326]" })
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsxRuntime.jsx(
+          "div",
+          {
+            className: "pointer-events-none absolute left-1 top-[6px] z-0 h-[18px] w-[62px] transition-transform duration-300 ease-out",
+            style: { transform: `translate3d(0, ${activeIndex * 20}px, 0)` },
+            "aria-hidden": true,
+            children: /* @__PURE__ */ jsxRuntime.jsx(
+              "svg",
+              {
+                viewBox: "0 0 62 18",
+                preserveAspectRatio: "none",
+                "aria-hidden": "true",
+                className: "prismatic-resolution-ellipse size-full overflow-visible",
+                children: /* @__PURE__ */ jsxRuntime.jsx(
+                  "ellipse",
+                  {
+                    cx: "31",
+                    cy: "8.5",
+                    rx: "30.5",
+                    ry: "8.5",
+                    fill: "none",
+                    stroke: "var(--prismatic-surface-active)",
+                    strokeWidth: "1",
+                    vectorEffect: "non-scaling-stroke"
+                  }
+                )
+              },
+              activeIndex
+            )
+          }
+        ),
+        /* @__PURE__ */ jsxRuntime.jsx(
+          "div",
+          {
+            className: "pointer-events-none absolute left-1 top-[6px] flex flex-col items-center gap-[2px] overflow-hidden rounded-[17px]",
+            style: { mixBlendMode: "difference" },
+            "aria-hidden": true,
+            children: CANVAS_RESOLUTION_SCALES.map((candidate) => /* @__PURE__ */ jsxRuntime.jsx(
+              "div",
+              {
+                className: [
+                  "flex h-[18px] w-[62px] items-center justify-center font-['PP_Neue_Montreal',system-ui,sans-serif] text-[12px] leading-[1.1] tracking-[-0.24px] lowercase transition-opacity duration-150",
+                  hoveredScale === candidate && candidate !== scale ? "opacity-70" : "opacity-100"
+                ].join(" "),
+                children: /* @__PURE__ */ jsxRuntime.jsx("span", { className: "block text-[rgba(255,255,255,0.9)]", children: SCALE_LABEL[candidate] })
+              },
+              candidate
+            ))
+          }
+        ),
+        /* @__PURE__ */ jsxRuntime.jsx(
+          "div",
+          {
+            className: "relative z-20 mt-[2px] flex flex-col items-center gap-[2px] overflow-hidden rounded-[17px]",
+            role: "radiogroup",
+            "aria-label": label,
+            children: CANVAS_RESOLUTION_SCALES.map((candidate) => {
+              return /* @__PURE__ */ jsxRuntime.jsx(
+                "button",
+                {
+                  type: "button",
+                  role: "radio",
+                  "aria-label": SCALE_LABEL[candidate],
+                  "aria-checked": candidate === scale,
+                  className: "h-[18px] w-[62px] cursor-pointer rounded-[17px] bg-transparent outline-none focus-visible:ring-1 focus-visible:ring-white/30",
+                  onPointerEnter: () => {
+                    if (candidate !== scale) setHoveredScale(candidate);
+                  },
+                  onPointerLeave: () => setHoveredScale(null),
+                  onPointerDown: (e) => e.stopPropagation(),
+                  onFocus: () => {
+                    if (candidate !== scale) setHoveredScale(candidate);
+                  },
+                  onBlur: () => setHoveredScale(null),
+                  onClick: () => setScale(candidate)
+                },
+                candidate
+              );
+            })
+          }
+        )
+      ]
+    }
+  );
+}
 
 // src/workspace/layout.ts
 function createGridLayout(panels, viewportWidth = typeof window !== "undefined" ? window.innerWidth : 1920, viewportHeight = typeof window !== "undefined" ? window.innerHeight : 1080, gap = 16) {
@@ -3736,7 +4080,10 @@ exports.BUTTON_ELLIPSE_WIDTH = BUTTON_ELLIPSE_WIDTH;
 exports.BUTTON_TEXT_LG = BUTTON_TEXT_LG;
 exports.Button = Button;
 exports.ButtonEllipseVisual = ButtonEllipseVisual;
+exports.CANVAS_RESOLUTION_SCALES = CANVAS_RESOLUTION_SCALES;
+exports.CanvasResolutionControl = CanvasResolutionControl;
 exports.CreativeCanvas = CreativeCanvas;
+exports.DEFAULT_CANVAS_RESOLUTION_SCALE = DEFAULT_CANVAS_RESOLUTION_SCALE;
 exports.DEFAULT_IMAGE_MODULES = DEFAULT_IMAGE_MODULES;
 exports.DEFAULT_PRISMATIC_CONFIG = DEFAULT_PRISMATIC_CONFIG;
 exports.DEFAULT_PRISMATIC_PALETTE = DEFAULT_PRISMATIC_PALETTE;
@@ -3772,6 +4119,7 @@ exports.WorkspaceGroup = WorkspaceGroup;
 exports.WorkspacePanel = WorkspacePanel;
 exports.WorkspaceShell = WorkspaceShell;
 exports.chunkIntoColumns = chunkIntoColumns;
+exports.clampCanvasResolutionScale = clampCanvasResolutionScale;
 exports.clampImageModules = clampImageModules;
 exports.clampSliderColumns = clampSliderColumns;
 exports.clampToWorkspaceBounds = clampToWorkspaceBounds;
@@ -3784,6 +4132,7 @@ exports.createPrismaticStore = createPrismaticStore;
 exports.deriveThemeFromPalette = deriveThemeFromPalette;
 exports.findAutoPlacedPosition = findAutoPlacedPosition;
 exports.findShortcutsPosition = findShortcutsPosition;
+exports.formatCanvasResolutionScale = formatCanvasResolutionScale;
 exports.formatPrismaticThemeCss = formatPrismaticThemeCss;
 exports.getActiveCanvasSnapLines = getActiveCanvasSnapLines;
 exports.getActiveDistributionGuides = getActiveDistributionGuides;
@@ -3808,6 +4157,7 @@ exports.moduleSize = moduleSize;
 exports.moduleSpanPx = moduleSpanPx;
 exports.normalizeThemeInput = normalizeThemeInput;
 exports.parseColor = parseColor;
+exports.resolveCanvasResolutionSize = resolveCanvasResolutionSize;
 exports.resolvePrismaticConfig = resolvePrismaticConfig;
 exports.resolvePrismaticPalette = resolvePrismaticPalette;
 exports.resolvePrismaticTheme = resolvePrismaticTheme;

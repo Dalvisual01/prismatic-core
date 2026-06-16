@@ -199,6 +199,25 @@ export const createMySketch: SketchFactory = (p) =>
 - `loadSource(url, "image" | "video")`
 - `saveCanvas(filename?)`
 
+### Canvas resolution
+
+Use `CanvasResolutionControl` to switch the working resolution between full,
+half, and quarter size. The canvas keeps the same on-screen dimensions, while
+the p5 backing buffer and loaded source images are reduced to lower the render
+cost.
+
+```tsx
+import { CanvasResolutionControl } from "@prismatic/core"
+
+<CanvasResolutionControl />
+```
+
+Inside a sketch, call `p.getPrismaticResolutionScale?.()` when custom buffers or
+source processing need to follow the active resolution scale.
+
+`saveCanvas()` always captures a full-resolution render, even when the current
+working resolution is half or quarter.
+
 ## Workspace panels
 
 | Component | Purpose |

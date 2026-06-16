@@ -1,5 +1,10 @@
 import { create, type StoreApi, type UseBoundStore } from "zustand"
 import {
+  DEFAULT_CANVAS_RESOLUTION_SCALE,
+  clampCanvasResolutionScale,
+  type CanvasResolutionScale,
+} from "../canvas/resolution"
+import {
   clampImageModules,
   defaultImageModules,
   imagePanelSize,
@@ -36,6 +41,7 @@ export type PrismaticStoreState = {
   snapFlashIds: PanelId[]
   sliderColumnCount: number
   imagePreviewModules: number
+  canvasResolutionScale: CanvasResolutionScale
   toggleWorkspaceMode: () => void
   setWorkspaceMode: (enabled: boolean) => void
   setUiGroupSize: (id: PanelId, size: PanelSize) => void
@@ -45,6 +51,7 @@ export type PrismaticStoreState = {
   flashSnapTargets: (ids: PanelId[]) => void
   setSliderColumnCount: (count: number) => void
   setImagePreviewModules: (modules: number) => void
+  setCanvasResolutionScale: (scale: CanvasResolutionScale) => void
   initializeLayout: (
     positions: Record<PanelId, PixelPosition>,
     sizes: Record<PanelId, PanelSize>,
@@ -57,6 +64,7 @@ export type PrismaticStoreInit = {
   workspaceMode?: boolean
   sliderColumnCount?: number
   imagePreviewModules?: number
+  canvasResolutionScale?: CanvasResolutionScale
 }
 
 export function createPrismaticStore(
@@ -64,6 +72,8 @@ export function createPrismaticStore(
 ): UseBoundStore<StoreApi<PrismaticStoreState>> {
   const sliderColumns = init.sliderColumnCount ?? defaultSliderColumns()
   const imageModules = init.imagePreviewModules ?? defaultImageModules()
+  const resolutionScale =
+    init.canvasResolutionScale ?? DEFAULT_CANVAS_RESOLUTION_SCALE
 
   return create<PrismaticStoreState>((set) => ({
     workspaceMode: init.workspaceMode ?? false,
@@ -74,6 +84,7 @@ export function createPrismaticStore(
     snapFlashIds: [],
     sliderColumnCount: sliderColumns,
     imagePreviewModules: imageModules,
+    canvasResolutionScale: clampCanvasResolutionScale(resolutionScale),
     toggleWorkspaceMode: () =>
       set((s) => ({ workspaceMode: !s.workspaceMode })),
     setWorkspaceMode: (enabled) => set({ workspaceMode: enabled }),
@@ -118,6 +129,8 @@ export function createPrismaticStore(
         },
       }))
     },
+    setCanvasResolutionScale: (scale) =>
+      set({ canvasResolutionScale: clampCanvasResolutionScale(scale) }),
     initializeLayout: (positions, sizes) =>
       set({ uiPositions: positions, uiSizes: sizes }),
   }))

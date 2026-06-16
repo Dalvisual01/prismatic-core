@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.2.3 — 2026-06-16
+
+### Added
+
+- **Canvas work resolution** — switch between `1.0×`, `0.5×`, and `0.25×` backing buffer scale while keeping the same on-screen canvas size
+- `CanvasResolutionControl` — compact vertical radio UI for resolution selection
+- Resolution store state: `canvasResolutionScale`, `setCanvasResolutionScale`
+- Resolution utilities: `CANVAS_RESOLUTION_SCALES`, `resolveCanvasResolutionSize`, `formatCanvasResolutionScale`
+- `CreativeCanvas` helpers on p5 instance: `getPrismaticResolutionScale`, `resizePrismaticCanvas`, `exportPrismaticCanvasDataUrl`
+- Ellipse transition animation for resolution selector (`prismatic-resolution-ellipse` in `style.css`)
+
+### Changed
+
+- `saveCanvas()` always exports at full resolution, even when work scale is half or quarter
+- Loaded source images are downsampled to match the active work resolution
+- `PrismaticProvider` applies runtime config during render (fixes `canvas.spotlight` not working until first re-render)
+- `WorkspaceShell` uses `z-10` outside workspace mode so the canvas spotlight mask is visible on first load
+
+### Migration
+
+See README “Canvas resolution” section. Add `<CanvasResolutionControl />` to your workspace UI and optionally read `p.getPrismaticResolutionScale?.()` inside custom sketch buffers.
+
 ## 0.2.2 — 2026-06-16
 
 ### Added

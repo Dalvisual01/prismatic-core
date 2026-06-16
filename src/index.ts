@@ -65,6 +65,15 @@ export {
   type CreativeCanvasHandle,
   type CreativeCanvasProps,
 } from "./canvas/CreativeCanvas"
+export {
+  CANVAS_RESOLUTION_SCALES,
+  DEFAULT_CANVAS_RESOLUTION_SCALE,
+  clampCanvasResolutionScale,
+  formatCanvasResolutionScale,
+  resolveCanvasResolutionSize,
+  type CanvasResolutionScale,
+  type CanvasResolutionSize,
+} from "./canvas/resolution"
 export type { P5WithSketch, PreviewKind, SketchFactory } from "./canvas/types"
 
 // Workspace shell
@@ -91,6 +100,10 @@ export {
   ImageComponent,
   type ImageComponentProps,
 } from "./components/ui/ImageComponent"
+export {
+  CanvasResolutionControl,
+  type CanvasResolutionControlProps,
+} from "./components/ui/CanvasResolutionControl"
 
 // Workspace utilities
 export type {

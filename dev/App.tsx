@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react"
 import {
   Button,
+  CanvasResolutionControl,
   CreativeCanvas,
   FloatingHelp,
   ImageComponent,
@@ -12,6 +13,7 @@ import {
   WorkspacePanel,
   WorkspaceShell,
   usePrismaticStore,
+  type CreativeCanvasHandle,
   type SketchFactory,
 } from "../src/index"
 import { playgroundSketch } from "./sketch"
@@ -33,7 +35,7 @@ const PLACEHOLDER_IMAGE =
     </svg>`,
   )
 
-type ComponentKind = "button" | "slider" | "radio" | "image"
+type ComponentKind = "button" | "slider" | "radio" | "image" | "resolution"
 
 type PlaygroundPanel = {
   id: string
@@ -45,11 +47,13 @@ const COMPONENT_CATALOG: { kind: ComponentKind; label: string; description: stri
   { kind: "slider", label: "Slider", description: "Range control" },
   { kind: "radio", label: "Radio", description: "Option list" },
   { kind: "image", label: "Image preview", description: "Source picker" },
+  { kind: "resolution", label: "Resolution", description: "Canvas work scale" },
 ]
 
 const INITIAL_POSITIONS: Record<string, { x: number; y: number }> = {
   "demo-button": { x: 360, y: 120 },
   "demo-slider": { x: 360, y: 300 },
+  "demo-resolution": { x: 360, y: 480 },
 }
 
 function PanelChrome({
@@ -115,6 +119,7 @@ function PlaygroundPanelContent({
   onRadioChange,
   imageSrc,
   onImageReplace,
+  onSaveCanvas,
   onRemove,
 }: {
   panelId: string
@@ -125,6 +130,7 @@ function PlaygroundPanelContent({
   onRadioChange: (index: number) => void
   imageSrc: string
   onImageReplace: (file: File) => void
+  onSaveCanvas: () => void
   onRemove: () => void
 }) {
   const label = COMPONENT_CATALOG.find((c) => c.kind === kind)?.label ?? kind
@@ -133,7 +139,13 @@ function PlaygroundPanelContent({
     case "button":
       return (
         <PanelChrome title={label} onRemove={onRemove}>
-          <Button>save</Button>
+          <Button
+            className="workspace-controls"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={onSaveCanvas}
+          >
+            save
+          </Button>
         </PanelChrome>
       )
     case "slider":
@@ -171,10 +183,19 @@ function PlaygroundPanelContent({
           />
         </ImagePanel>
       )
+    case "resolution":
+      return (
+        <PanelChrome title={label} onRemove={onRemove}>
+          <div className="flex justify-center">
+            <CanvasResolutionControl />
+          </div>
+        </PanelChrome>
+      )
   }
 }
 
 export function App() {
+  const canvasRef = useRef<CreativeCanvasHandle>(null)
   const [colorMode, setColorMode] = useState<PrismaticColorMode>("default")
   const storeInit = useMemo(
     () => ({
@@ -182,12 +203,24 @@ export function App() {
     }),
     [],
   )
-  const config = useMemo(() => ({ colorMode }), [colorMode])
+  const config = useMemo(
+    () => ({
+      colorMode,
+      canvas: {
+        spotlight: true,
+      },
+    }),
+    [colorMode],
+  )
 
   return (
     <PrismaticProvider config={config} storeInit={storeInit}>
-      <CreativeCanvas createSketch={playgroundSketch as SketchFactory} />
-      <Playground colorMode={colorMode} onColorModeChange={setColorMode} />
+      <CreativeCanvas ref={canvasRef} createSketch={playgroundSketch as SketchFactory} />
+      <Playground
+        colorMode={colorMode}
+        onColorModeChange={setColorMode}
+        onSaveCanvas={() => canvasRef.current?.saveCanvas("resolution-proof")}
+      />
     </PrismaticProvider>
   )
 }
@@ -195,9 +228,11 @@ export function App() {
 function Playground({
   colorMode,
   onColorModeChange,
+  onSaveCanvas,
 }: {
   colorMode: PrismaticColorMode
   onColorModeChange: (colorMode: PrismaticColorMode) => void
+  onSaveCanvas: () => void
 }) {
   const useStore = usePrismaticStore()
   const setUiGroupPosition = useStore((s) => s.setUiGroupPosition)
@@ -205,6 +240,7 @@ function Playground({
   const [panels, setPanels] = useState<PlaygroundPanel[]>([
     { id: "demo-button", kind: "button" },
     { id: "demo-slider", kind: "slider" },
+    { id: "demo-resolution", kind: "resolution" },
   ])
   const [sliderValue, setSliderValue] = useState(0.42)
   const [radioValue, setRadioValue] = useState(0)
@@ -244,7 +280,7 @@ function Playground({
           <p className="mt-1 text-[11px] lowercase leading-snug text-white/55">
             Add components to the canvas, interact with them anytime, and press{" "}
             <kbd className="rounded bg-white/10 px-1 py-0.5 text-white/80">w</kbd> to drag and
-            arrange panels.
+            arrange panels. Move the cursor over the canvas to test the transparent cursor effect.
           </p>
         </div>
 
@@ -295,6 +331,7 @@ function Playground({
               onRadioChange={setRadioValue}
               imageSrc={imageSrc}
               onImageReplace={onImageReplace}
+              onSaveCanvas={onSaveCanvas}
               onRemove={() => removePanel(panel.id)}
             />
           </WorkspacePanel>
