@@ -537,7 +537,7 @@ export const CreativeCanvas = forwardRef<CreativeCanvasHandle, CreativeCanvasPro
         <div
           ref={containerRef}
           className={[
-            "prismatic-surface-frame inline-flex p-1 rounded-[calc(var(--radius)*2+4px)] [&_canvas]:block [&_canvas]:max-h-none [&_canvas]:max-w-none [&_canvas]:rounded-[calc(var(--radius)*2)]",
+            "prismatic-surface-frame prismatic-corners-canvas-frame inline-flex p-1",
             workspaceMode
               ? "pointer-events-auto cursor-grab active:cursor-grabbing"
               : "pointer-events-none",

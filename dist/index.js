@@ -360,6 +360,10 @@ function getRuntimeThemeBlendModes() {
 function getRuntimePalette() {
   return runtimeTheme.palette;
 }
+var PRISMATIC_CORNERS_CLASS = "prismatic-corners";
+var PRISMATIC_CORNERS_INNER_CLASS = "prismatic-corners-inner";
+var PRISMATIC_CORNERS_INNER_SM_CLASS = "prismatic-corners-inner-sm";
+var PRISMATIC_CORNERS_CANVAS_FRAME_CLASS = "prismatic-corners-canvas-frame";
 var PRISMATIC_SURFACE_FRAME_STYLE = {
   backgroundImage: "linear-gradient(90deg, var(--prismatic-surface) 0%, var(--prismatic-surface) 100%), linear-gradient(90deg, var(--prismatic-border-subtle) 0%, var(--prismatic-border-subtle) 100%)"
 };
@@ -1868,7 +1872,7 @@ var CreativeCanvas = forwardRef(
           {
             ref: containerRef,
             className: [
-              "prismatic-surface-frame inline-flex p-1 rounded-[calc(var(--radius)*2+4px)] [&_canvas]:block [&_canvas]:max-h-none [&_canvas]:max-w-none [&_canvas]:rounded-[calc(var(--radius)*2)]",
+              "prismatic-surface-frame prismatic-corners-canvas-frame inline-flex p-1",
               workspaceMode ? "pointer-events-auto cursor-grab active:cursor-grabbing" : "pointer-events-none"
             ].join(" "),
             style: {
@@ -3319,7 +3323,7 @@ function Slider({
   return /* @__PURE__ */ jsxs(
     "div",
     {
-      className: "prismatic-surface-frame prismatic-squircle relative box-border flex w-full flex-col justify-center overflow-hidden rounded-[var(--radius)] p-1",
+      className: "prismatic-surface-frame prismatic-corners relative box-border flex w-full flex-col justify-center overflow-hidden p-1",
       style: {
         ...PRISMATIC_SURFACE_FRAME_STYLE,
         height: OUTER_H,
@@ -3339,7 +3343,7 @@ function Slider({
             "aria-valuenow": value,
             "aria-label": label,
             tabIndex: 0,
-            className: `absolute inset-0 z-10 touch-none select-none rounded-[var(--radius)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--prismatic-border-subtle)] ${isToggle ? "cursor-pointer" : "cursor-ew-resize"}`,
+            className: `prismatic-corners absolute inset-0 z-10 touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-[var(--prismatic-border-subtle)] ${isToggle ? "cursor-pointer" : "cursor-ew-resize"}`,
             onPointerDown,
             onPointerMove,
             onPointerUp,
@@ -3382,7 +3386,7 @@ function Slider({
                           /* @__PURE__ */ jsx(
                             "div",
                             {
-                              className: `pointer-events-none absolute inset-y-0 left-0 rounded-[var(--radius-inner)] prismatic-squircle ${showRange ? "bg-transparent" : "prismatic-bg-surface-muted"}`,
+                              className: `prismatic-corners-inner pointer-events-none absolute inset-y-0 left-0 ${showRange ? "bg-transparent" : "prismatic-bg-surface-muted"}`,
                               style: {
                                 width: pillWidthStyle.width,
                                 minWidth: pillWidthStyle.minWidth
@@ -3472,7 +3476,7 @@ function Slider({
                       /* @__PURE__ */ jsx(
                         "div",
                         {
-                          className: "prismatic-bg-surface-muted prismatic-squircle pointer-events-none absolute inset-y-0 left-0 overflow-hidden rounded-[var(--radius-inner-sm)] backdrop-blur-[14.649px] [corner-shape:round]",
+                          className: "prismatic-bg-surface-muted prismatic-corners-inner-sm pointer-events-none absolute inset-y-0 left-0 overflow-hidden backdrop-blur-[14.649px]",
                           style: {
                             width: pillWidthStyle.width,
                             minWidth: pillWidthStyle.minWidth
@@ -3636,7 +3640,7 @@ function ImageComponent({
                 "div",
                 {
                   className: [
-                    "prismatic-border-accent prismatic-bg-image-meta prismatic-squircle flex w-full max-w-[274px] flex-col justify-center rounded-[var(--radius-inner)] border border-solid pl-[18px] pr-[12px] prismatic-text-muted backdrop-blur-[10px] transition-[background-color,border-color,color] duration-200 group-hover:border-transparent group-hover:prismatic-bg-image-meta-hover group-hover:prismatic-text-primary",
+                    "prismatic-border-accent prismatic-bg-image-meta prismatic-corners-inner flex w-full max-w-[274px] flex-col justify-center border border-solid pl-[18px] pr-[12px] prismatic-text-muted backdrop-blur-[10px] transition-[background-color,border-color,color] duration-200 group-hover:border-transparent group-hover:prismatic-bg-image-meta-hover group-hover:prismatic-text-primary",
                     metrics.showFileSize ? "gap-2 py-3" : "py-2.5"
                   ].join(" "),
                   style: {
@@ -3721,6 +3725,6 @@ function mergePanelSizes(sizes, overrides) {
   return merged;
 }
 
-export { BUTTON_ELLIPSE_HEIGHT, BUTTON_ELLIPSE_WIDTH, BUTTON_TEXT_LG, Button, ButtonEllipseVisual, CreativeCanvas, DEFAULT_IMAGE_MODULES, DEFAULT_PRISMATIC_CONFIG, DEFAULT_PRISMATIC_PALETTE, DEFAULT_PRISMATIC_PALETTE_BLEND_MODES, DEFAULT_PRISMATIC_THEME, DEFAULT_PRISMATIC_THEME_BLEND_MODES, DEFAULT_SLIDER_COLUMNS, FloatingHelp, IMAGE_DESIGN_SIZE, IMAGE_PREVIEW_MODULES, ImageComponent, ImagePanel, LAYOUT_GAP, MODULE, PRISMATIC_BLEND_MODES, PRISMATIC_COLOR_MODES, PRISMATIC_COLOR_MODE_THEMES, PRISMATIC_PALETTE_TOKEN_KEYS, PRISMATIC_PALETTE_TOKEN_LABELS, PRISMATIC_THEME_CSS_VARS, PRISMATIC_THEME_PRESETS, PrismaticProvider, Radio, SLIDER_COUNT, Slider, SlidersPanel, WorkspaceDebugOverlay, WorkspaceGroup, WorkspacePanel, WorkspaceShell, chunkIntoColumns, clampImageModules, clampSliderColumns, clampToWorkspaceBounds, collectCanvasPanSnapTargets, collectSnapTargets, collectWorkspaceSnapLines, columnCountFromWidth, createGridLayout, createPrismaticStore, deriveThemeFromPalette, findAutoPlacedPosition, findShortcutsPosition, formatPrismaticThemeCss, getActiveCanvasSnapLines, getActiveDistributionGuides, getActiveVisualSnapLines, getCanvasScreenRect, getCanvasSnapTargetIds, getRuntimePalette, getRuntimeTheme, getRuntimeThemeBlendModes, getSnapTargetIds, getWindowMarginRect, imageComponentMetrics, imageModulesFromSize, imagePanelSize, imagePreviewSizePx, isSnapParticipant, isSnappedToTopMargin, isUiPositionClear, layoutGap, mergePanelSizes, moduleSize, moduleSpanPx, normalizeThemeInput, parseColor, resolvePrismaticConfig, resolvePrismaticPalette, resolvePrismaticTheme, samePanelIds, sameUiGroupIds, sliderColumnWidthPx, slidersPanelSize, snapCanvasPan, snapPosition, snapScalar, snapThreshold, useImagePanelSize, usePanelPosition, usePrismaticStore, useWorkspaceGroup, useWorkspaceMode, useWorkspacePanel, windowMargin };
+export { BUTTON_ELLIPSE_HEIGHT, BUTTON_ELLIPSE_WIDTH, BUTTON_TEXT_LG, Button, ButtonEllipseVisual, CreativeCanvas, DEFAULT_IMAGE_MODULES, DEFAULT_PRISMATIC_CONFIG, DEFAULT_PRISMATIC_PALETTE, DEFAULT_PRISMATIC_PALETTE_BLEND_MODES, DEFAULT_PRISMATIC_THEME, DEFAULT_PRISMATIC_THEME_BLEND_MODES, DEFAULT_SLIDER_COLUMNS, FloatingHelp, IMAGE_DESIGN_SIZE, IMAGE_PREVIEW_MODULES, ImageComponent, ImagePanel, LAYOUT_GAP, MODULE, PRISMATIC_BLEND_MODES, PRISMATIC_COLOR_MODES, PRISMATIC_COLOR_MODE_THEMES, PRISMATIC_CORNERS_CANVAS_FRAME_CLASS, PRISMATIC_CORNERS_CLASS, PRISMATIC_CORNERS_INNER_CLASS, PRISMATIC_CORNERS_INNER_SM_CLASS, PRISMATIC_PALETTE_TOKEN_KEYS, PRISMATIC_PALETTE_TOKEN_LABELS, PRISMATIC_THEME_CSS_VARS, PRISMATIC_THEME_PRESETS, PrismaticProvider, Radio, SLIDER_COUNT, Slider, SlidersPanel, WorkspaceDebugOverlay, WorkspaceGroup, WorkspacePanel, WorkspaceShell, chunkIntoColumns, clampImageModules, clampSliderColumns, clampToWorkspaceBounds, collectCanvasPanSnapTargets, collectSnapTargets, collectWorkspaceSnapLines, columnCountFromWidth, createGridLayout, createPrismaticStore, deriveThemeFromPalette, findAutoPlacedPosition, findShortcutsPosition, formatPrismaticThemeCss, getActiveCanvasSnapLines, getActiveDistributionGuides, getActiveVisualSnapLines, getCanvasScreenRect, getCanvasSnapTargetIds, getRuntimePalette, getRuntimeTheme, getRuntimeThemeBlendModes, getSnapTargetIds, getWindowMarginRect, imageComponentMetrics, imageModulesFromSize, imagePanelSize, imagePreviewSizePx, isSnapParticipant, isSnappedToTopMargin, isUiPositionClear, layoutGap, mergePanelSizes, moduleSize, moduleSpanPx, normalizeThemeInput, parseColor, resolvePrismaticConfig, resolvePrismaticPalette, resolvePrismaticTheme, samePanelIds, sameUiGroupIds, sliderColumnWidthPx, slidersPanelSize, snapCanvasPan, snapPosition, snapScalar, snapThreshold, useImagePanelSize, usePanelPosition, usePrismaticStore, useWorkspaceGroup, useWorkspaceMode, useWorkspacePanel, windowMargin };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map

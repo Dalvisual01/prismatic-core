@@ -556,6 +556,13 @@ export function getRuntimePalette(): PrismaticPalette {
   return runtimeTheme.palette
 }
 
+/** Squircle corner utilities from `@prismatic/core/style.css` — same presets as Slider. */
+export const PRISMATIC_CORNERS_CLASS = "prismatic-corners"
+export const PRISMATIC_CORNERS_INNER_CLASS = "prismatic-corners-inner"
+export const PRISMATIC_CORNERS_INNER_SM_CLASS = "prismatic-corners-inner-sm"
+export const PRISMATIC_CORNERS_CANVAS_FRAME_CLASS =
+  "prismatic-corners-canvas-frame"
+
 /** Layered surface + border fill. Pair with `prismatic-surface-frame` for blend mode. */
 export const PRISMATIC_SURFACE_FRAME_STYLE = {
   backgroundImage:

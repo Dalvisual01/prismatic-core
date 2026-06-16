@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.2 — 2026-06-16
+
+### Added
+
+- Squircle corner utility classes in `style.css`: `prismatic-corners`, `prismatic-corners-inner`, `prismatic-corners-inner-sm`, `prismatic-corners-canvas-frame`
+- Exported `PRISMATIC_CORNERS_*` class name constants for custom UI
+
+### Changed
+
+- `ImageComponent` filename container uses `prismatic-corners-inner` (same squircle preset as sliders)
+- `CreativeCanvas` frame and canvas use squircle corner utilities
+- `Slider` uses the shared corner utilities instead of pairing Tailwind `rounded-*` with `prismatic-squircle`
+
 ## 0.2.1 — 2026-06-15
 
 ### Added

@@ -93,7 +93,7 @@ export function ImageComponent({
       >
         <div
           className={[
-            "prismatic-border-accent prismatic-bg-image-meta prismatic-squircle flex w-full max-w-[274px] flex-col justify-center rounded-[var(--radius-inner)] border border-solid pl-[18px] pr-[12px] prismatic-text-muted backdrop-blur-[10px] transition-[background-color,border-color,color] duration-200 group-hover:border-transparent group-hover:prismatic-bg-image-meta-hover group-hover:prismatic-text-primary",
+            "prismatic-border-accent prismatic-bg-image-meta prismatic-corners-inner flex w-full max-w-[274px] flex-col justify-center border border-solid pl-[18px] pr-[12px] prismatic-text-muted backdrop-blur-[10px] transition-[background-color,border-color,color] duration-200 group-hover:border-transparent group-hover:prismatic-bg-image-meta-hover group-hover:prismatic-text-primary",
             metrics.showFileSize ? "gap-2 py-3" : "py-2.5",
           ].join(" ")}
           style={{

@@ -44,6 +44,36 @@
   corner-shape: squircle;
 }
 
+/* Squircle corner presets — pair radius + corner-shape in one rule (same look as Slider). */
+.prismatic-corners {
+  border-radius: var(--radius);
+  corner-shape: squircle;
+}
+
+.prismatic-corners-inner {
+  border-radius: var(--radius-inner);
+  corner-shape: squircle;
+}
+
+/* Short inner pills (slider min/max row) — round caps to half-height. */
+.prismatic-corners-inner-sm {
+  border-radius: var(--radius-inner-sm);
+  corner-shape: round;
+}
+
+.prismatic-corners-canvas-frame {
+  border-radius: calc(var(--radius) * 2 + 4px);
+  corner-shape: squircle;
+}
+
+.prismatic-corners-canvas-frame canvas {
+  display: block;
+  max-height: none;
+  max-width: none;
+  border-radius: calc(var(--radius) * 2);
+  corner-shape: squircle;
+}
+
 .prismatic-text-primary {
   color: var(--prismatic-text-primary);
 }

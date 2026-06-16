@@ -46,7 +46,7 @@ const OUTER_H = 70
 const OUTER_PAD_Y = 8
 const DEFAULT_ROW_H = OUTER_H - OUTER_PAD_Y
 
-/** Inner pill corner radius = --radius − 4px (matches `rounded-[var(--radius-inner)]` on the pill).
+/** Inner pill corner radius = --radius − 4px (matches `prismatic-corners-inner` on the pill).
  *  Below 2× that, the two rounded ends overlap and the pill looks pinched, so we floor min-width there. */
 const INNER_PAD = 4
 const FALLBACK_RADIUS = 32
@@ -206,7 +206,7 @@ export function Slider({
 
   return (
     <div
-      className="prismatic-surface-frame prismatic-squircle relative box-border flex w-full flex-col justify-center overflow-hidden rounded-[var(--radius)] p-1"
+      className="prismatic-surface-frame prismatic-corners relative box-border flex w-full flex-col justify-center overflow-hidden p-1"
       style={{
         ...PRISMATIC_SURFACE_FRAME_STYLE,
         height: OUTER_H,
@@ -225,7 +225,7 @@ export function Slider({
         aria-valuenow={value}
         aria-label={label}
         tabIndex={0}
-        className={`absolute inset-0 z-10 touch-none select-none rounded-[var(--radius)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--prismatic-border-subtle)] ${
+        className={`prismatic-corners absolute inset-0 z-10 touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-[var(--prismatic-border-subtle)] ${
           isToggle ? "cursor-pointer" : "cursor-ew-resize"
         }`}
         onPointerDown={onPointerDown}
@@ -264,7 +264,7 @@ export function Slider({
           >
             {/* Fill pill (visual width) */}
             <div
-              className={`pointer-events-none absolute inset-y-0 left-0 rounded-[var(--radius-inner)] prismatic-squircle ${
+              className={`prismatic-corners-inner pointer-events-none absolute inset-y-0 left-0 ${
                 showRange ? "bg-transparent" : "prismatic-bg-surface-muted"
               }`}
               style={{
@@ -357,7 +357,7 @@ export function Slider({
             <div className="relative flex min-h-0 flex-1 items-stretch" style={bottomRowHeightStyle}>
               {/* Fill pill (visual width) */}
               <div
-                className="prismatic-bg-surface-muted prismatic-squircle pointer-events-none absolute inset-y-0 left-0 overflow-hidden rounded-[var(--radius-inner-sm)] backdrop-blur-[14.649px] [corner-shape:round]"
+                className="prismatic-bg-surface-muted prismatic-corners-inner-sm pointer-events-none absolute inset-y-0 left-0 overflow-hidden backdrop-blur-[14.649px]"
                 style={{
                   width: pillWidthStyle.width,
                   minWidth: pillWidthStyle.minWidth,
