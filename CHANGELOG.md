@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.4 — 2026-06-16
+
+### Added
+
+- AI implementation guide covering migration workflow, framework boundaries, canvas lifecycle, and logical-vs-backing measurement rules for resolution-safe shaders
+- Background-tab canvas pause — `CreativeCanvas` stops p5 drawing and canvas animation frames while the document is hidden
+- Shader playground demo with image source replacement and post-processing controls
+
+### Changed
+
+- Canvas resolution control is non-interactive during workspace mode so panel dragging stays reliable
+- Resolution tooltip timing now lives in CSS and only appears outside workspace mode
+- Workspace mode now blurs the active element when enabled to avoid focused controls intercepting shortcuts
+
 ## 0.2.3 — 2026-06-16
 
 ### Added

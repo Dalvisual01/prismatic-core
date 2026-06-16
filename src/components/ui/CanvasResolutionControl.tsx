@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { usePrismaticStore } from "../../hooks/usePrismaticStore"
 import {
   CANVAS_RESOLUTION_SCALES,
@@ -12,8 +12,6 @@ const SCALE_LABEL: Record<CanvasResolutionScale, string> = {
   0.25: "0.25×",
 }
 
-const TOOLTIP_DELAY_MS = 1500
-
 export type CanvasResolutionControlProps = {
   label?: string
   className?: string
@@ -24,59 +22,33 @@ export function CanvasResolutionControl({
   className = "",
 }: CanvasResolutionControlProps) {
   const useStore = usePrismaticStore()
+  const workspaceMode = useStore((s) => s.workspaceMode)
   const scale = useStore((s) => s.canvasResolutionScale)
   const setScale = useStore((s) => s.setCanvasResolutionScale)
   const activeIndex = Math.max(0, CANVAS_RESOLUTION_SCALES.indexOf(scale))
   const [hoveredScale, setHoveredScale] = useState<CanvasResolutionScale | null>(
     null,
   )
-  const [tooltipOpen, setTooltipOpen] = useState(false)
-  const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const clearTooltipTimer = () => {
-    if (tooltipTimerRef.current) {
-      clearTimeout(tooltipTimerRef.current)
-      tooltipTimerRef.current = null
-    }
-  }
-
-  const scheduleTooltip = () => {
-    clearTooltipTimer()
-    tooltipTimerRef.current = setTimeout(() => {
-      setTooltipOpen(true)
-      tooltipTimerRef.current = null
-    }, TOOLTIP_DELAY_MS)
-  }
-
-  const hideTooltip = () => {
-    clearTooltipTimer()
-    setTooltipOpen(false)
-  }
-
-  useEffect(() => () => clearTooltipTimer(), [])
+  useEffect(() => {
+    if (!workspaceMode) return
+    setHoveredScale(null)
+  }, [workspaceMode])
 
   return (
     <div
       className={[
-        "workspace-controls group/resolution prismatic-surface-frame relative isolate flex h-[70px] w-[70px] flex-col items-center gap-1 overflow-visible rounded-[32px] p-1 [corner-shape:squircle]",
+        "group/resolution prismatic-surface-frame relative isolate flex h-[70px] w-[70px] flex-col items-center gap-1 overflow-visible rounded-[32px] p-1 [corner-shape:squircle]",
         className,
       ]
         .filter(Boolean)
         .join(" ")}
       style={PRISMATIC_SURFACE_FRAME_STYLE}
       data-prismatic-control="canvas-resolution"
-      onPointerEnter={scheduleTooltip}
-      onPointerLeave={hideTooltip}
-      onFocus={scheduleTooltip}
-      onBlur={hideTooltip}
+      data-workspace-mode={workspaceMode ? "" : undefined}
     >
       <div
-        className={[
-          "absolute left-1/2 top-[-54px] z-50 w-max max-w-[230px] -translate-x-1/2 rounded-lg bg-[#242326] px-3 py-2 shadow-lg transition-[opacity,transform] duration-150",
-          tooltipOpen
-            ? "translate-y-[-2px] opacity-100"
-            : "pointer-events-none opacity-0",
-        ].join(" ")}
+        className="prismatic-resolution-tooltip pointer-events-none absolute left-1/2 top-[-54px] z-50 w-max max-w-[230px] -translate-x-1/2 rounded-lg bg-[#242326] px-3 py-2 shadow-lg"
         role="tooltip"
       >
         <p className="font-['PP_Neue_Montreal',system-ui,sans-serif] text-[13px] leading-[1.1] tracking-[-0.26px] text-white">
@@ -145,17 +117,31 @@ export function CanvasResolutionControl({
               role="radio"
               aria-label={SCALE_LABEL[candidate]}
               aria-checked={candidate === scale}
-              className="h-[18px] w-[62px] cursor-pointer rounded-[17px] bg-transparent outline-none focus-visible:ring-1 focus-visible:ring-white/30"
+              tabIndex={workspaceMode ? -1 : 0}
+              className={[
+                "h-[18px] w-[62px] rounded-[17px] bg-transparent outline-none",
+                workspaceMode
+                  ? "pointer-events-none cursor-grab"
+                  : "cursor-pointer focus-visible:ring-1 focus-visible:ring-white/30",
+              ].join(" ")}
               onPointerEnter={() => {
-                if (candidate !== scale) setHoveredScale(candidate)
+                if (workspaceMode || candidate === scale) return
+                setHoveredScale(candidate)
               }}
               onPointerLeave={() => setHoveredScale(null)}
-              onPointerDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => {
+                if (workspaceMode) return
+                e.stopPropagation()
+              }}
               onFocus={() => {
-                if (candidate !== scale) setHoveredScale(candidate)
+                if (workspaceMode || candidate === scale) return
+                setHoveredScale(candidate)
               }}
               onBlur={() => setHoveredScale(null)}
-              onClick={() => setScale(candidate)}
+              onClick={() => {
+                if (workspaceMode) return
+                setScale(candidate)
+              }}
             />
           )
         })}

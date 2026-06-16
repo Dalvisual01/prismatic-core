@@ -322,6 +322,25 @@ export const CreativeCanvas = forwardRef<CreativeCanvasHandle, CreativeCanvasPro
       panRafRef.current = requestAnimationFrame(runPanFrame)
     }, [runPanFrame])
 
+    const setCanvasActive = useCallback(
+      (active: boolean) => {
+        const p = pInstRef.current
+        if (!active) {
+          cancelPanRaf()
+          dragRef.current.active = false
+          useStore.getState().setCanvasDragDebug(null)
+          p?.noLoop?.()
+          return
+        }
+
+        p?.loop?.()
+        if (workspaceModeRef.current) {
+          schedulePanFrame()
+        }
+      },
+      [cancelPanRaf, schedulePanFrame, useStore],
+    )
+
     useEffect(() => {
       workspaceModeRef.current = workspaceMode
       if (workspaceMode) {
@@ -567,6 +586,19 @@ export const CreativeCanvas = forwardRef<CreativeCanvasHandle, CreativeCanvasPro
         loadImageSource(source.url)
       }
     }, [canvasResolutionScale, loadImageSource])
+
+    useEffect(() => {
+      if (typeof document === "undefined") return
+      const handleVisibilityChange = () => {
+        setCanvasActive(!document.hidden)
+      }
+
+      handleVisibilityChange()
+      document.addEventListener("visibilitychange", handleVisibilityChange)
+      return () => {
+        document.removeEventListener("visibilitychange", handleVisibilityChange)
+      }
+    }, [setCanvasActive])
 
     useEffect(() => {
       const el = outerRef.current

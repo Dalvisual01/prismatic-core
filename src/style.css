@@ -147,6 +147,22 @@
   animation: prismatic-resolution-ellipse-elastic 380ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.prismatic-resolution-tooltip {
+  opacity: 0;
+  transform: translateY(0);
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+  transition-delay: 0ms;
+}
+
+[data-prismatic-control="canvas-resolution"]:not([data-workspace-mode]):hover
+  .prismatic-resolution-tooltip {
+  opacity: 1;
+  transform: translateY(-2px);
+  transition-delay: 1500ms;
+}
+
 @keyframes prismatic-resolution-ellipse-elastic {
   0% {
     transform: scaleY(1);

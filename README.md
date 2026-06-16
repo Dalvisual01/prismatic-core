@@ -82,6 +82,14 @@ npm run dev:playground
 
 Opens at `http://localhost:5173` with a component picker, live theme controls, and workspace shortcuts (`w`, `r`).
 
+## AI implementation guide
+
+Prismatic is intended to be migrated into apps by humans and AI agents. Read
+**[AI_IMPLEMENTATION_GUIDE.md](./docs/AI_IMPLEMENTATION_GUIDE.md)** before
+moving app code into the framework. It documents the framework/app boundary,
+the migration pipeline, canvas lifecycle rules, and the logical-vs-backing
+measurement rule for resolution-safe shaders.
+
 ## Configuration
 
 Create `prismatic.config.ts` in your project:

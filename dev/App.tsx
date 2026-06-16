@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react"
+import { useCallback, useMemo, useRef, useState, type MutableRefObject } from "react"
 import {
   Button,
   CanvasResolutionControl,
@@ -14,9 +14,8 @@ import {
   WorkspaceShell,
   usePrismaticStore,
   type CreativeCanvasHandle,
-  type SketchFactory,
 } from "../src/index"
-import { playgroundSketch } from "./sketch"
+import { createPlaygroundSketch } from "./sketch"
 import { ThemeControls } from "./ThemeControls"
 import type { PrismaticColorMode } from "../src/theme/tokens"
 
@@ -53,43 +52,8 @@ const COMPONENT_CATALOG: { kind: ComponentKind; label: string; description: stri
 const INITIAL_POSITIONS: Record<string, { x: number; y: number }> = {
   "demo-button": { x: 360, y: 120 },
   "demo-slider": { x: 360, y: 300 },
-  "demo-resolution": { x: 360, y: 480 },
-}
-
-function PanelChrome({
-  title,
-  onRemove,
-  children,
-}: {
-  title: string
-  onRemove: () => void
-  children: ReactNode
-}) {
-  const useStore = usePrismaticStore()
-  const workspaceMode = useStore((s) => s.workspaceMode)
-
-  if (!workspaceMode) {
-    return (
-      <div className="workspace-hover-zone pointer-events-auto">{children}</div>
-    )
-  }
-
-  return (
-    <div className="workspace-hover-zone workspace-panel pointer-events-auto flex flex-col gap-3 rounded-[var(--radius)] bg-black/40 p-3 backdrop-blur-sm">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[11px] lowercase tracking-wide text-white/70">{title}</span>
-        <button
-          type="button"
-          className="workspace-controls rounded-full px-2 py-0.5 text-[10px] lowercase text-white/70 transition-colors hover:bg-white/15 hover:text-white"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={onRemove}
-        >
-          remove
-        </button>
-      </div>
-      {children}
-    </div>
-  )
+  "demo-image": { x: 360, y: 420 },
+  "demo-resolution": { x: 360, y: 560 },
 }
 
 function ImagePreviewDemo({
@@ -120,7 +84,6 @@ function PlaygroundPanelContent({
   imageSrc,
   onImageReplace,
   onSaveCanvas,
-  onRemove,
 }: {
   panelId: string
   kind: ComponentKind
@@ -131,72 +94,48 @@ function PlaygroundPanelContent({
   imageSrc: string
   onImageReplace: (file: File) => void
   onSaveCanvas: () => void
-  onRemove: () => void
 }) {
-  const label = COMPONENT_CATALOG.find((c) => c.kind === kind)?.label ?? kind
-
   switch (kind) {
     case "button":
-      return (
-        <PanelChrome title={label} onRemove={onRemove}>
-          <Button
-            className="workspace-controls"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={onSaveCanvas}
-          >
-            save
-          </Button>
-        </PanelChrome>
-      )
+      return <Button onClick={onSaveCanvas}>save</Button>
     case "slider":
       return (
-        <PanelChrome title={label} onRemove={onRemove}>
-          <SlidersPanel panelId={panelId}>
-            <Slider
-              label="Amount"
-              value={sliderValue}
-              min={0}
-              max={1}
-              step={0.01}
-              displayValue={(v) => v.toFixed(2)}
-              onChange={onSliderChange}
-            />
-          </SlidersPanel>
-        </PanelChrome>
+        <SlidersPanel panelId={panelId}>
+          <Slider
+            label="Post FX"
+            value={sliderValue}
+            min={0}
+            max={1}
+            step={0.01}
+            displayValue={(v) => v.toFixed(2)}
+            onChange={onSliderChange}
+          />
+        </SlidersPanel>
       )
     case "radio":
       return (
-        <PanelChrome title={label} onRemove={onRemove}>
-          <Radio
-            items={["option a", "option b", "option c"]}
-            value={radioValue}
-            onChange={onRadioChange}
-          />
-        </PanelChrome>
+        <Radio
+          items={["option a", "option b", "option c"]}
+          value={radioValue}
+          onChange={onRadioChange}
+        />
       )
     case "image":
       return (
         <ImagePanel panelId={panelId}>
-          <ImagePreviewDemo
-            imageSrc={imageSrc}
-            onImageReplace={onImageReplace}
-          />
+          <ImagePreviewDemo imageSrc={imageSrc} onImageReplace={onImageReplace} />
         </ImagePanel>
       )
     case "resolution":
-      return (
-        <PanelChrome title={label} onRemove={onRemove}>
-          <div className="flex justify-center">
-            <CanvasResolutionControl />
-          </div>
-        </PanelChrome>
-      )
+      return <CanvasResolutionControl />
   }
 }
 
 export function App() {
   const canvasRef = useRef<CreativeCanvasHandle>(null)
+  const sketchParamsRef = useRef({ amount: 0.42 })
   const [colorMode, setColorMode] = useState<PrismaticColorMode>("default")
+  const [imageSrc, setImageSrc] = useState(PLACEHOLDER_IMAGE)
   const storeInit = useMemo(
     () => ({
       initialPositions: INITIAL_POSITIONS,
@@ -212,14 +151,33 @@ export function App() {
     }),
     [colorMode],
   )
+  const createSketch = useMemo(
+    () =>
+      createPlaygroundSketch({
+        getAmount: () => sketchParamsRef.current.amount,
+      }),
+    [],
+  )
+
+  const onImageReplace = useCallback((file: File) => {
+    const url = URL.createObjectURL(file)
+    setImageSrc((prev) => {
+      if (prev.startsWith("blob:")) URL.revokeObjectURL(prev)
+      return url
+    })
+    canvasRef.current?.loadSource(url, "image")
+  }, [])
 
   return (
     <PrismaticProvider config={config} storeInit={storeInit}>
-      <CreativeCanvas ref={canvasRef} createSketch={playgroundSketch as SketchFactory} />
+      <CreativeCanvas ref={canvasRef} createSketch={createSketch} />
       <Playground
         colorMode={colorMode}
         onColorModeChange={setColorMode}
-        onSaveCanvas={() => canvasRef.current?.saveCanvas("resolution-proof")}
+        onSaveCanvas={() => canvasRef.current?.saveCanvas("shader-playground")}
+        imageSrc={imageSrc}
+        onImageReplace={onImageReplace}
+        sketchParamsRef={sketchParamsRef}
       />
     </PrismaticProvider>
   )
@@ -229,10 +187,16 @@ function Playground({
   colorMode,
   onColorModeChange,
   onSaveCanvas,
+  imageSrc,
+  onImageReplace,
+  sketchParamsRef,
 }: {
   colorMode: PrismaticColorMode
   onColorModeChange: (colorMode: PrismaticColorMode) => void
   onSaveCanvas: () => void
+  imageSrc: string
+  onImageReplace: (file: File) => void
+  sketchParamsRef: MutableRefObject<{ amount: number }>
 }) {
   const useStore = usePrismaticStore()
   const setUiGroupPosition = useStore((s) => s.setUiGroupPosition)
@@ -240,11 +204,19 @@ function Playground({
   const [panels, setPanels] = useState<PlaygroundPanel[]>([
     { id: "demo-button", kind: "button" },
     { id: "demo-slider", kind: "slider" },
+    { id: "demo-image", kind: "image" },
     { id: "demo-resolution", kind: "resolution" },
   ])
   const [sliderValue, setSliderValue] = useState(0.42)
   const [radioValue, setRadioValue] = useState(0)
-  const [imageSrc, setImageSrc] = useState(PLACEHOLDER_IMAGE)
+
+  const handleSliderChange = useCallback(
+    (value: number) => {
+      sketchParamsRef.current.amount = value
+      setSliderValue(value)
+    },
+    [sketchParamsRef],
+  )
 
   const addPanel = useCallback(
     (kind: ComponentKind) => {
@@ -264,27 +236,48 @@ function Playground({
     setPanels((current) => current.filter((panel) => panel.id !== id))
   }, [])
 
-  const onImageReplace = useCallback((file: File) => {
-    const url = URL.createObjectURL(file)
-    setImageSrc((prev) => {
-      if (prev.startsWith("blob:")) URL.revokeObjectURL(prev)
-      return url
-    })
-  }, [])
-
   return (
     <>
       <aside className="pointer-events-auto fixed left-0 top-0 z-40 flex h-full w-[260px] flex-col border-r border-[var(--prismatic-border-subtle)] bg-[var(--prismatic-overlay-bg)] backdrop-blur-md">
         <div className="border-b border-white/10 px-4 py-4">
           <p className="text-[13px] lowercase tracking-[-0.26px] text-white">playground</p>
           <p className="mt-1 text-[11px] lowercase leading-snug text-white/55">
-            Add components to the canvas, interact with them anytime, and press{" "}
-            <kbd className="rounded bg-white/10 px-1 py-0.5 text-white/80">w</kbd> to drag and
-            arrange panels. Move the cursor over the canvas to test the transparent cursor effect.
+            Shader playground with image source and post FX. Press{" "}
+            <kbd className="rounded bg-white/10 px-1 py-0.5 text-white/80">w</kbd> to drag
+            panels. Switch resolution to stress-test the canvas pipeline.
           </p>
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 py-3">
+          <p className="mb-2 px-1 text-[10px] uppercase tracking-[0.12em] text-white/40">
+            on canvas
+          </p>
+          {panels.length === 0 ? (
+            <p className="mb-5 px-1 text-[10px] lowercase text-white/40">
+              no panels yet
+            </p>
+          ) : (
+            <ul className="mb-5 flex flex-col gap-1.5">
+              {panels.map((panel) => {
+                const label =
+                  COMPONENT_CATALOG.find((c) => c.kind === panel.kind)?.label ??
+                  panel.kind
+                return (
+                  <li key={panel.id}>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition-colors hover:bg-white/8"
+                      onClick={() => removePanel(panel.id)}
+                    >
+                      <span className="text-[12px] lowercase text-white">{label}</span>
+                      <span className="text-[10px] lowercase text-white/45">remove</span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+
           <p className="mb-2 px-1 text-[10px] uppercase tracking-[0.12em] text-white/40">
             components
           </p>
@@ -326,13 +319,12 @@ function Playground({
               panelId={panel.id}
               kind={panel.kind}
               sliderValue={sliderValue}
-              onSliderChange={setSliderValue}
+              onSliderChange={handleSliderChange}
               radioValue={radioValue}
               onRadioChange={setRadioValue}
               imageSrc={imageSrc}
               onImageReplace={onImageReplace}
               onSaveCanvas={onSaveCanvas}
-              onRemove={() => removePanel(panel.id)}
             />
           </WorkspacePanel>
         ))}

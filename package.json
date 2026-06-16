@@ -1,6 +1,6 @@
 {
   "name": "@prismatic/core",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Creative coding framework — workspace UI, canvas shell, and controls for generative graphics tools",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -16,6 +16,7 @@
   },
   "files": [
     "dist",
+    "docs",
     "README.md",
     "CHANGELOG.md"
   ],

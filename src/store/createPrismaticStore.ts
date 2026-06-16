@@ -19,6 +19,12 @@ import type { PanelId, PanelRect, PanelSize, PixelPosition } from "../workspace/
 const SNAP_FLASH_MS = 100
 let snapFlashTimer: ReturnType<typeof setTimeout> | null = null
 
+function blurActiveElement() {
+  if (typeof document === "undefined") return
+  const active = document.activeElement
+  if (active instanceof HTMLElement) active.blur()
+}
+
 export type PanelDragDebug = {
   id: PanelId
   raw: PixelPosition
@@ -86,8 +92,15 @@ export function createPrismaticStore(
     imagePreviewModules: imageModules,
     canvasResolutionScale: clampCanvasResolutionScale(resolutionScale),
     toggleWorkspaceMode: () =>
-      set((s) => ({ workspaceMode: !s.workspaceMode })),
-    setWorkspaceMode: (enabled) => set({ workspaceMode: enabled }),
+      set((s) => {
+        const workspaceMode = !s.workspaceMode
+        if (workspaceMode) blurActiveElement()
+        return { workspaceMode }
+      }),
+    setWorkspaceMode: (enabled) => {
+      if (enabled) blurActiveElement()
+      set({ workspaceMode: enabled })
+    },
     setUiGroupSize: (id, size) =>
       set((s) => ({
         uiSizes: { ...s.uiSizes, [id]: size },
