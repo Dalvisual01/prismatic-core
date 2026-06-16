@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { usePrismaticInteraction } from "../../hooks/usePrismaticStore"
 
 const EXPANDED_W = "304.012px"
 const TEXT_CLASS =
@@ -18,6 +19,7 @@ function RadioRow({ label, isActive, onClick }: RadioRowProps) {
   return (
     <button
       type="button"
+      data-prismatic-interactive=""
       onClick={onClick}
       style={{
         minWidth: isActive ? EXPANDED_W : undefined,

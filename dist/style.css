@@ -138,6 +138,17 @@
   /* receives pointer events when parent has pointer-events-none */
 }
 
+/* In workspace mode, panel content stays inert; only `.workspace-controls` stay clickable. */
+[data-workspace-mode] [data-prismatic-interactive],
+[data-workspace-mode] [data-prismatic-interactive] * {
+  pointer-events: none;
+}
+
+[data-workspace-mode] .workspace-controls,
+[data-workspace-mode] .workspace-controls * {
+  pointer-events: auto;
+}
+
 .workspace-panel {
   /* sized panel container with optional transitions */
 }

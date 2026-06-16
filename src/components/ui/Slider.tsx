@@ -6,6 +6,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react"
+import { usePrismaticInteraction } from "../../hooks/usePrismaticStore"
 import { PRISMATIC_SURFACE_FRAME_STYLE } from "../../theme/tokens"
 
 const DEFAULT_SLIDER_LINE_TOP = `data:image/svg+xml,${encodeURIComponent(
@@ -42,7 +43,8 @@ function snapToStep(value: number, min: number, step: number) {
 /** Figma compact row height; two rows + gap-1 = 60px content; outer frame 70px with p-1 (62px area). */
 const ROW_H = 28
 const INNER_STACK_H = ROW_H + 4 + ROW_H
-const OUTER_H = 70
+export const SLIDER_OUTER_HEIGHT = 70
+const OUTER_H = SLIDER_OUTER_HEIGHT
 const OUTER_PAD_Y = 8
 const DEFAULT_ROW_H = OUTER_H - OUTER_PAD_Y
 
@@ -67,6 +69,7 @@ export function Slider({
   /** Full slider hit area (whole component). */
   const hitAreaRef = useRef<HTMLDivElement>(null)
   const draggingRef = useRef(false)
+  const interactionEnabled = usePrismaticInteraction()
   const [hovered, setHovered] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [trackWidthPx, setTrackWidthPx] = useState(0)
@@ -95,6 +98,10 @@ export function Slider({
     const parsed = parseFloat(raw)
     if (Number.isFinite(parsed)) setInnerCornerPx(parsed - INNER_PAD)
   }, [])
+
+  useEffect(() => {
+    if (!interactionEnabled) setHovered(false)
+  }, [interactionEnabled])
 
   const normalized =
     max === min ? 0 : clamp((value - min) / (max - min), 0, 1)
@@ -182,8 +189,8 @@ export function Slider({
 
   const fillPct = useMemo(() => normalized * 100, [normalized])
 
-  const showRange = hovered || dragging
-  const showHandle = hovered || dragging
+  const showRange = interactionEnabled && (hovered || dragging)
+  const showHandle = interactionEnabled && (hovered || dragging)
 
   /** Visual pill width: matches value; never narrower than 2× the inner corner radius (else the rounded ends overlap). */
   const pillWidthStyle = useMemo(() => {
@@ -206,6 +213,7 @@ export function Slider({
 
   return (
     <div
+      data-prismatic-interactive=""
       className="prismatic-surface-frame prismatic-corners relative box-border flex w-full flex-col justify-center overflow-hidden p-1"
       style={{
         ...PRISMATIC_SURFACE_FRAME_STYLE,
@@ -213,7 +221,7 @@ export function Slider({
         minHeight: OUTER_H,
         maxHeight: OUTER_H,
       }}
-      onPointerEnter={() => setHovered(true)}
+      onPointerEnter={() => interactionEnabled && setHovered(true)}
       onPointerLeave={() => setHovered(false)}
     >
       {/* Full-size interaction layer so you can drag from anywhere on the slider. */}

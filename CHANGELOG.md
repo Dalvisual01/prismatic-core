@@ -1,9 +1,21 @@
 # Changelog
 
+## 0.2.6 — 2026-06-16
+
+### Added
+
+- **Layout mode** — `npm run layout` launches the same app with a save bar; click **save layout** to write panel positions, pixel sizes, and per-panel size settings to a layout module used by dev and build
+- `PrismaticLayoutSnapshot`, `layoutSnapshotToStoreInit`, `isLayoutMode`, `useLayoutPersistence`, and `LayoutModeChrome`
+- `panelSettings` store field with restore support in `ButtonPanel`, `AppTitlePanel`, `ImagePanel`, and `SlidersPanel`
+- `prismaticLayoutPlugin` Vite plugin (`@prismatic/core/vite/layout`) for writing layout snapshots during layout mode
+
 ## 0.2.5 — 2026-06-16
 
 ### Added
 
+- `Button` size variants — `small` (small type, slider height, hug width), `medium` (large type, shorter ellipse, hug width), `large` (fixed ellipse)
+- `ButtonPanel` workspace wrapper with size toolbar and resize handle
+- Workspace mode suppresses hover/active states on `data-prismatic-interactive` panel content (`usePrismaticInteraction()`)
 - `AppTitle` identity primitive with small default sizing and proportional logo support
 - `AppTitlePanel` workspace wrapper with `S` / `M` title-size controls and resize handle
 - Playground app title lockup in both sidebar chrome and the draggable workspace area

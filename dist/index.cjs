@@ -1,8 +1,8 @@
 'use strict';
 
 var react = require('react');
-var zustand = require('zustand');
 var jsxRuntime = require('react/jsx-runtime');
+var zustand = require('zustand');
 var p5 = require('p5');
 var reactDom = require('react-dom');
 
@@ -451,29 +451,535 @@ function setRuntimeConfig(config) {
 function getRuntimeConfig() {
   return runtimeConfig;
 }
-
-// src/canvas/resolution.ts
-var CANVAS_RESOLUTION_SCALES = [1, 0.5, 0.25];
-var DEFAULT_CANVAS_RESOLUTION_SCALE = 1;
-function clampCanvasResolutionScale(scale) {
-  if (scale == null || !Number.isFinite(scale)) return DEFAULT_CANVAS_RESOLUTION_SCALE;
-  return CANVAS_RESOLUTION_SCALES.reduce(
-    (closest, candidate) => Math.abs(candidate - scale) < Math.abs(closest - scale) ? candidate : closest
+function usePrismaticStore() {
+  const store = react.useContext(PrismaticStoreContext);
+  if (!store) {
+    throw new Error("usePrismaticStore must be used within PrismaticProvider");
+  }
+  return store;
+}
+function useWorkspaceMode() {
+  const useStore = usePrismaticStore();
+  return useStore((s) => s.workspaceMode);
+}
+function usePrismaticInteraction() {
+  const workspaceMode = useWorkspaceMode();
+  return !workspaceMode;
+}
+function usePanelPosition(id) {
+  const useStore = usePrismaticStore();
+  return useStore((s) => s.uiPositions[id]);
+}
+var DEFAULT_SLIDER_LINE_TOP = `data:image/svg+xml,${encodeURIComponent(
+  `<svg preserveAspectRatio="none" width="100%" height="100%" overflow="visible" style="display: block;" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><g opacity="1"><line x1="0.86003" y1="-0.86003" x2="17.1552" y2="-0.86003" stroke="white" style="mix-blend-mode:difference" stroke-width="1.72006" stroke-linecap="round"/></g></svg>`
+)}`;
+var DEFAULT_SLIDER_LINE_BOTTOM = `data:image/svg+xml,${encodeURIComponent(
+  `<svg preserveAspectRatio="none" width="100%" height="100%" overflow="visible" style="display: block;" viewBox="0 0 18.0153 1.72006" fill="none" xmlns="http://www.w3.org/2000/svg"><g><line x1="0.86003" y1="0.86003" x2="17.1552" y2="0.86003" stroke="white" style="mix-blend-mode:difference" stroke-width="1.72006" stroke-linecap="round"/></g></svg>`
+)}`;
+function clamp(n, lo, hi) {
+  return Math.min(hi, Math.max(lo, n));
+}
+function snapToStep(value, min, step) {
+  const steps = Math.round((value - min) / step);
+  return min + steps * step;
+}
+var ROW_H = 28;
+var INNER_STACK_H = ROW_H + 4 + ROW_H;
+var SLIDER_OUTER_HEIGHT = 70;
+var OUTER_H = SLIDER_OUTER_HEIGHT;
+var OUTER_PAD_Y = 8;
+var DEFAULT_ROW_H = OUTER_H - OUTER_PAD_Y;
+var INNER_PAD = 4;
+var FALLBACK_RADIUS = 32;
+function Slider({
+  label,
+  value,
+  min,
+  max,
+  step = 0.01,
+  displayValue,
+  onChange,
+  lineTopSrc = DEFAULT_SLIDER_LINE_TOP,
+  lineBottomSrc = DEFAULT_SLIDER_LINE_BOTTOM
+}) {
+  const trackAreaRef = react.useRef(null);
+  const hitAreaRef = react.useRef(null);
+  const draggingRef = react.useRef(false);
+  const interactionEnabled = usePrismaticInteraction();
+  const [hovered, setHovered] = react.useState(false);
+  const [dragging, setDragging] = react.useState(false);
+  const [trackWidthPx, setTrackWidthPx] = react.useState(0);
+  const [innerCornerPx, setInnerCornerPx] = react.useState(
+    FALLBACK_RADIUS - INNER_PAD
+  );
+  const [editingValue, setEditingValue] = react.useState(false);
+  const [draftValue, setDraftValue] = react.useState("");
+  const valueInputRef = react.useRef(null);
+  react.useEffect(() => {
+    const el = trackAreaRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      setTrackWidthPx(el.getBoundingClientRect().width);
+    });
+    ro.observe(el);
+    setTrackWidthPx(el.getBoundingClientRect().width);
+    return () => ro.disconnect();
+  }, []);
+  react.useEffect(() => {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue(
+      "--radius"
+    );
+    const parsed = parseFloat(raw);
+    if (Number.isFinite(parsed)) setInnerCornerPx(parsed - INNER_PAD);
+  }, []);
+  react.useEffect(() => {
+    if (!interactionEnabled) setHovered(false);
+  }, [interactionEnabled]);
+  const normalized = max === min ? 0 : clamp((value - min) / (max - min), 0, 1);
+  const shown = displayValue?.(value) ?? (Number.isInteger(step) && step >= 1 ? String(Math.round(value)) : value.toFixed(4).replace(/\.?0+$/, ""));
+  const isBoolean = min === 0 && max === 1 && step === 1;
+  const isToggle = isBoolean;
+  const minLabel = isBoolean ? "false" : String(min);
+  const maxLabel = isBoolean ? "true" : String(max);
+  react.useEffect(() => {
+    if (!editingValue) return;
+    valueInputRef.current?.focus();
+    valueInputRef.current?.select();
+  }, [editingValue]);
+  const commitDraftValue = react.useCallback(() => {
+    if (isToggle) return;
+    const raw = Number(draftValue.trim());
+    if (!Number.isFinite(raw)) {
+      setEditingValue(false);
+      setDraftValue("");
+      return;
+    }
+    const snapped = snapToStep(raw, min, step);
+    const clamped = clamp(snapped, min, max);
+    onChange(clamped);
+    setEditingValue(false);
+    setDraftValue("");
+  }, [draftValue, isToggle, max, min, onChange, step]);
+  const cancelDraftValue = react.useCallback(() => {
+    setEditingValue(false);
+    setDraftValue("");
+  }, []);
+  const setFromClientX = react.useCallback(
+    (clientX) => {
+      const el = hitAreaRef.current ?? trackAreaRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const t = clamp((clientX - rect.left) / rect.width, 0, 1);
+      const raw = min + t * (max - min);
+      const next = snapToStep(raw, min, step);
+      const clamped = clamp(next, min, max);
+      if (clamped !== value) onChange(clamped);
+    },
+    [max, min, onChange, step, value]
+  );
+  const onPointerDown = (e) => {
+    e.preventDefault();
+    if (isToggle) {
+      onChange(value >= 0.5 ? 0 : 1);
+      return;
+    }
+    draggingRef.current = true;
+    setDragging(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setFromClientX(e.clientX);
+  };
+  const onPointerMove = (e) => {
+    if (isToggle) return;
+    if (!draggingRef.current) return;
+    setFromClientX(e.clientX);
+  };
+  const onPointerUp = (e) => {
+    if (isToggle) return;
+    draggingRef.current = false;
+    setDragging(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+    }
+  };
+  const fillPct = react.useMemo(() => normalized * 100, [normalized]);
+  const showRange = interactionEnabled && (hovered || dragging);
+  const showHandle = interactionEnabled && (hovered || dragging);
+  const pillWidthStyle = react.useMemo(() => {
+    const minPx = innerCornerPx * 2;
+    if (fillPct <= 0) return { width: "0%", minWidth: void 0 };
+    if (fillPct >= 100) return { width: "100%", minWidth: void 0 };
+    if (trackWidthPx <= 0) return { width: `${fillPct}%`, minWidth: void 0 };
+    const minPct = minPx / trackWidthPx * 100;
+    const visualPct = Math.max(fillPct, minPct);
+    return {
+      width: `${visualPct}%`,
+      minWidth: visualPct === minPct && fillPct < minPct ? `${minPx}px` : void 0
+    };
+  }, [fillPct, trackWidthPx, innerCornerPx]);
+  const stackHeight = showRange ? INNER_STACK_H : DEFAULT_ROW_H;
+  const topRowHeight = showRange ? ROW_H : DEFAULT_ROW_H;
+  const topRowHeightStyle = { height: topRowHeight, minHeight: topRowHeight };
+  const bottomRowHeightStyle = { height: ROW_H, minHeight: ROW_H };
+  return /* @__PURE__ */ jsxRuntime.jsxs(
+    "div",
+    {
+      "data-prismatic-interactive": "",
+      className: "prismatic-surface-frame prismatic-corners relative box-border flex w-full flex-col justify-center overflow-hidden p-1",
+      style: {
+        ...PRISMATIC_SURFACE_FRAME_STYLE,
+        height: OUTER_H,
+        minHeight: OUTER_H,
+        maxHeight: OUTER_H
+      },
+      onPointerEnter: () => interactionEnabled && setHovered(true),
+      onPointerLeave: () => setHovered(false),
+      children: [
+        /* @__PURE__ */ jsxRuntime.jsx(
+          "div",
+          {
+            ref: hitAreaRef,
+            role: "slider",
+            "aria-valuemin": min,
+            "aria-valuemax": max,
+            "aria-valuenow": value,
+            "aria-label": label,
+            tabIndex: 0,
+            className: `prismatic-corners absolute inset-0 z-10 touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-[var(--prismatic-border-subtle)] ${isToggle ? "cursor-pointer" : "cursor-ew-resize"}`,
+            onPointerDown,
+            onPointerMove,
+            onPointerUp,
+            onPointerCancel: onPointerUp,
+            onKeyDown: (e) => {
+              if (isToggle) {
+                if (e.key !== " " && e.key !== "Enter") return;
+                e.preventDefault();
+                onChange(value >= 0.5 ? 0 : 1);
+                return;
+              }
+              if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+              e.preventDefault();
+              const dir = e.key === "ArrowRight" ? 1 : -1;
+              const delta = step * dir * (e.shiftKey ? 10 : 1);
+              const next = clamp(snapToStep(value + delta, min, step), min, max);
+              if (next !== value) onChange(next);
+            }
+          }
+        ),
+        /* @__PURE__ */ jsxRuntime.jsxs(
+          "div",
+          {
+            className: "relative z-0 flex shrink-0 flex-col gap-1 transition-[height] duration-300 ease-out",
+            style: { height: stackHeight, minHeight: stackHeight, maxHeight: stackHeight },
+            children: [
+              /* @__PURE__ */ jsxRuntime.jsxs(
+                "div",
+                {
+                  className: "flex shrink-0 items-center pr-[18px] transition-[height] duration-300 ease-out",
+                  style: topRowHeightStyle,
+                  children: [
+                    /* @__PURE__ */ jsxRuntime.jsxs(
+                      "div",
+                      {
+                        ref: trackAreaRef,
+                        className: "relative flex min-h-0 flex-1 items-stretch",
+                        style: topRowHeightStyle,
+                        children: [
+                          /* @__PURE__ */ jsxRuntime.jsx(
+                            "div",
+                            {
+                              className: `prismatic-corners-inner pointer-events-none absolute inset-y-0 left-0 ${showRange ? "bg-transparent" : "prismatic-bg-surface-muted"}`,
+                              style: {
+                                width: pillWidthStyle.width,
+                                minWidth: pillWidthStyle.minWidth
+                              },
+                              "aria-hidden": true,
+                              children: /* @__PURE__ */ jsxRuntime.jsx(
+                                "div",
+                                {
+                                  className: `absolute inset-y-0 right-0 z-[2] w-0 transition-opacity duration-300 ease-out ${showHandle ? "opacity-100" : "opacity-0"}`,
+                                  "aria-hidden": true,
+                                  children: lineTopSrc && /* @__PURE__ */ jsxRuntime.jsx("div", { className: "absolute right-0 top-1/2 h-[18px] w-[18px] -translate-y-1/2 translate-x-1/2 rotate-90", children: /* @__PURE__ */ jsxRuntime.jsx(
+                                    "img",
+                                    {
+                                      src: lineTopSrc,
+                                      alt: "",
+                                      className: "block h-full w-full max-w-none",
+                                      draggable: false
+                                    }
+                                  ) })
+                                }
+                              )
+                            }
+                          ),
+                          /* @__PURE__ */ jsxRuntime.jsx("div", { className: "relative z-[1] flex w-full min-w-0 items-center pl-[18px] pr-3", children: /* @__PURE__ */ jsxRuntime.jsx("p", { className: "min-w-0 truncate font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] prismatic-text-primary lowercase", children: label }) })
+                        ]
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntime.jsx(
+                      "div",
+                      {
+                        className: "relative z-20 flex shrink-0 items-center pl-2",
+                        style: topRowHeightStyle,
+                        children: editingValue && !isToggle ? /* @__PURE__ */ jsxRuntime.jsx(
+                          "input",
+                          {
+                            ref: valueInputRef,
+                            value: draftValue,
+                            inputMode: "decimal",
+                            className: "w-[120px] bg-transparent text-right font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] prismatic-text-primary tabular-nums outline-none",
+                            onChange: (e) => setDraftValue(e.target.value),
+                            onPointerDown: (e) => e.stopPropagation(),
+                            onClick: (e) => e.stopPropagation(),
+                            onBlur: commitDraftValue,
+                            onKeyDown: (e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                commitDraftValue();
+                              }
+                              if (e.key === "Escape") {
+                                e.preventDefault();
+                                cancelDraftValue();
+                              }
+                            }
+                          }
+                        ) : /* @__PURE__ */ jsxRuntime.jsx(
+                          "button",
+                          {
+                            type: "button",
+                            className: "cursor-text text-right font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] prismatic-text-primary tabular-nums",
+                            onPointerDown: (e) => e.stopPropagation(),
+                            onClick: (e) => {
+                              e.stopPropagation();
+                              if (isToggle) return;
+                              setDraftValue(String(value));
+                              setEditingValue(true);
+                            },
+                            children: shown
+                          }
+                        )
+                      }
+                    )
+                  ]
+                }
+              ),
+              /* @__PURE__ */ jsxRuntime.jsxs(
+                "div",
+                {
+                  className: "flex shrink-0 items-center overflow-hidden pr-[18px] transition-[max-height,opacity] duration-300 ease-out",
+                  style: {
+                    ...bottomRowHeightStyle,
+                    maxHeight: showRange ? ROW_H : 0,
+                    opacity: showRange ? 1 : 0
+                  },
+                  "aria-hidden": !showRange,
+                  children: [
+                    /* @__PURE__ */ jsxRuntime.jsx("div", { className: "flex min-h-0 flex-1 items-stretch", style: bottomRowHeightStyle, children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "relative flex min-h-0 flex-1 items-stretch", style: bottomRowHeightStyle, children: [
+                      /* @__PURE__ */ jsxRuntime.jsx(
+                        "div",
+                        {
+                          className: "prismatic-bg-surface-muted prismatic-corners-inner-sm pointer-events-none absolute inset-y-0 left-0 overflow-hidden backdrop-blur-[14.649px]",
+                          style: {
+                            width: pillWidthStyle.width,
+                            minWidth: pillWidthStyle.minWidth
+                          },
+                          "aria-hidden": true,
+                          children: /* @__PURE__ */ jsxRuntime.jsx("div", { className: "absolute right-3 top-1/2 -translate-y-1/2", children: /* @__PURE__ */ jsxRuntime.jsx("div", { className: "flex h-[18.015px] w-0 items-center justify-center", children: /* @__PURE__ */ jsxRuntime.jsx("div", { className: "flex-none rotate-90", children: /* @__PURE__ */ jsxRuntime.jsx("div", { className: "relative h-0 w-[18.015px]", children: lineBottomSrc && /* @__PURE__ */ jsxRuntime.jsx("div", { className: "absolute inset-[-1.72px_0_0_0]", children: /* @__PURE__ */ jsxRuntime.jsx(
+                            "img",
+                            {
+                              src: lineBottomSrc,
+                              alt: "",
+                              className: "block size-full max-w-none",
+                              draggable: false
+                            }
+                          ) }) }) }) }) })
+                        }
+                      ),
+                      /* @__PURE__ */ jsxRuntime.jsx("div", { className: "relative z-[1] flex w-full min-w-0 items-center pl-[18px] pr-3", children: /* @__PURE__ */ jsxRuntime.jsx("p", { className: "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[12px] leading-[1.1] tracking-[-0.24px] prismatic-text-primary tabular-nums lowercase", children: minLabel }) })
+                    ] }) }),
+                    /* @__PURE__ */ jsxRuntime.jsx(
+                      "div",
+                      {
+                        className: "pointer-events-none flex shrink-0 items-center justify-end pl-2",
+                        style: bottomRowHeightStyle,
+                        children: /* @__PURE__ */ jsxRuntime.jsx("p", { className: "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[12px] leading-[1.1] tracking-[-0.24px] prismatic-text-primary tabular-nums lowercase", children: maxLabel })
+                      }
+                    )
+                  ]
+                }
+              )
+            ]
+          }
+        )
+      ]
+    }
   );
 }
-function resolveCanvasResolutionSize(logicalWidth, logicalHeight, scale) {
+var BUTTON_TEXT_SM = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[13px] leading-[1.1] tracking-[-0.26px] lowercase";
+var BUTTON_TEXT_MD = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[15px] leading-[1.1] tracking-[-0.3px] lowercase";
+var BUTTON_TEXT_LG = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] lowercase";
+var BUTTON_ELLIPSE_WIDTH = 274;
+var BUTTON_ELLIPSE_HEIGHT = 120;
+var BUTTON_HEIGHT_MEDIUM = SLIDER_OUTER_HEIGHT;
+var BUTTON_WIDTH_MIN = BUTTON_ELLIPSE_WIDTH;
+var SIZE_METRICS = {
+  small: {
+    height: SLIDER_OUTER_HEIGHT,
+    textClass: BUTTON_TEXT_SM,
+    paddingX: 28
+  },
+  medium: {
+    height: SLIDER_OUTER_HEIGHT,
+    textClass: BUTTON_TEXT_LG,
+    paddingX: 40,
+    minWidth: BUTTON_ELLIPSE_WIDTH
+  },
+  large: {
+    width: BUTTON_ELLIPSE_WIDTH,
+    height: BUTTON_ELLIPSE_HEIGHT,
+    textClass: BUTTON_TEXT_LG,
+    paddingX: 0
+  }
+};
+function getButtonMetrics(size = "large") {
+  return SIZE_METRICS[size];
+}
+function hugWidthStyle(metrics) {
   return {
-    scale,
-    logicalWidth,
-    logicalHeight,
-    pixelWidth: Math.max(1, Math.round(logicalWidth * scale)),
-    pixelHeight: Math.max(1, Math.round(logicalHeight * scale))
+    height: metrics.height,
+    paddingLeft: metrics.paddingX,
+    paddingRight: metrics.paddingX,
+    minWidth: metrics.minWidth ?? Math.round(metrics.height * 1.5)
   };
 }
-function formatCanvasResolutionScale(scale) {
-  if (scale === 1) return "full";
-  if (scale === 0.5) return "half";
-  return "quarter";
+function ButtonEllipseVisual({
+  active,
+  children,
+  size,
+  width,
+  height,
+  textClassName,
+  className = ""
+}) {
+  const metrics = size ? getButtonMetrics(size) : null;
+  const hugWidth = metrics != null && metrics.width == null && width == null;
+  const resolvedWidth = width ?? metrics?.width;
+  const resolvedHeight = height ?? metrics?.height ?? BUTTON_ELLIPSE_HEIGHT;
+  const resolvedTextClass = textClassName ?? metrics?.textClass ?? BUTTON_TEXT_LG;
+  const containerStyle = hugWidth ? hugWidthStyle(metrics) : {
+    width: resolvedWidth ?? BUTTON_ELLIPSE_WIDTH,
+    height: resolvedHeight
+  };
+  return /* @__PURE__ */ jsxRuntime.jsxs(
+    "div",
+    {
+      className: [
+        "relative isolate inline-flex items-center justify-center",
+        hugWidth ? "w-fit" : "",
+        className
+      ].filter(Boolean).join(" "),
+      style: containerStyle,
+      children: [
+        /* @__PURE__ */ jsxRuntime.jsx(
+          "svg",
+          {
+            viewBox: `0 0 ${BUTTON_ELLIPSE_WIDTH} ${BUTTON_ELLIPSE_HEIGHT}`,
+            preserveAspectRatio: "none",
+            "aria-hidden": "true",
+            className: "pointer-events-none absolute inset-0 size-full",
+            children: /* @__PURE__ */ jsxRuntime.jsx(
+              "ellipse",
+              {
+                cx: "137",
+                cy: "60",
+                rx: "136",
+                ry: "59",
+                fill: active ? "var(--prismatic-surface-active)" : "transparent",
+                stroke: active ? "transparent" : "var(--prismatic-accent-stroke)",
+                strokeWidth: "1",
+                vectorEffect: "non-scaling-stroke"
+              }
+            )
+          }
+        ),
+        /* @__PURE__ */ jsxRuntime.jsx(
+          "span",
+          {
+            className: `relative z-[2] whitespace-nowrap mix-blend-normal ${active ? "prismatic-text-on-active" : "prismatic-text-muted"} ${resolvedTextClass}`,
+            children
+          }
+        )
+      ]
+    }
+  );
+}
+function Button({
+  children,
+  size = "large",
+  width,
+  height,
+  className = "",
+  type = "button",
+  disabled,
+  onMouseEnter,
+  onMouseLeave,
+  onFocus,
+  onBlur,
+  ...rest
+}) {
+  const interactionEnabled = usePrismaticInteraction();
+  const metrics = getButtonMetrics(size);
+  const hugWidth = metrics.width == null && width == null;
+  const resolvedWidth = width ?? metrics.width;
+  const resolvedHeight = height ?? metrics.height;
+  const [isActive, setIsActive] = react.useState(false);
+  const active = interactionEnabled && !disabled && isActive;
+  react.useEffect(() => {
+    if (!interactionEnabled) setIsActive(false);
+  }, [interactionEnabled]);
+  const buttonStyle = hugWidth ? { height: resolvedHeight } : { width: resolvedWidth, height: resolvedHeight };
+  return /* @__PURE__ */ jsxRuntime.jsx(
+    "button",
+    {
+      type,
+      disabled,
+      "data-prismatic-interactive": "",
+      className: [
+        "relative flex cursor-pointer select-none items-center justify-center outline-none disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:outline-none",
+        hugWidth ? "w-fit" : "",
+        className
+      ].filter(Boolean).join(" "),
+      style: buttonStyle,
+      onMouseEnter: (e) => {
+        if (interactionEnabled && !disabled) setIsActive(true);
+        onMouseEnter?.(e);
+      },
+      onMouseLeave: (e) => {
+        setIsActive(false);
+        onMouseLeave?.(e);
+      },
+      onFocus: (e) => {
+        if (interactionEnabled && !disabled) setIsActive(true);
+        onFocus?.(e);
+      },
+      onBlur: (e) => {
+        setIsActive(false);
+        onBlur?.(e);
+      },
+      ...rest,
+      children: /* @__PURE__ */ jsxRuntime.jsx(
+        ButtonEllipseVisual,
+        {
+          active,
+          size: width === void 0 && height === void 0 ? size : void 0,
+          width: resolvedWidth,
+          height: resolvedHeight,
+          children
+        }
+      )
+    }
+  );
 }
 
 // src/workspace/modules.ts
@@ -625,6 +1131,173 @@ function chunkIntoColumns(items, columnCount) {
   return columns;
 }
 
+// src/layout/panelSettings.ts
+function buttonSizeFromPanelSize(size) {
+  if (!size) return void 0;
+  if (size.height >= BUTTON_ELLIPSE_HEIGHT - 8) return "large";
+  if (size.height <= SLIDER_OUTER_HEIGHT + 2) {
+    return size.width >= BUTTON_WIDTH_MIN - 4 ? "medium" : "small";
+  }
+  return void 0;
+}
+function titleSizeFromPanelSize(size) {
+  if (!size) return void 0;
+  return size.height > 40 ? "large" : "small";
+}
+function derivePanelSettingsFromSnapshot(sizes, sliderCountByPanelId) {
+  if (!sizes) return {};
+  const settings = {};
+  for (const [id, size] of Object.entries(sizes)) {
+    const patch = {};
+    const imageModules = imageModulesFromSize(size.width);
+    if (size.width === size.height && Math.abs(imagePreviewSizePx(imageModules) - size.width) <= 2) {
+      patch.imageModules = imageModules;
+    }
+    const sliderColumns = columnCountFromWidth(size.width);
+    const sliderCount = sliderCountByPanelId?.[id] ?? 1;
+    const expectedSliderHeight = slidersPanelHeightPx(sliderColumns, sliderCount);
+    if (!patch.imageModules && Math.abs(expectedSliderHeight - size.height) <= 4) {
+      patch.sliderColumns = sliderColumns;
+    }
+    const buttonSize = buttonSizeFromPanelSize(size);
+    const isButtonHeight = size.height >= 65 && size.height <= 125;
+    if (!patch.imageModules && !patch.sliderColumns && buttonSize && isButtonHeight) {
+      const metrics = getButtonMetrics(buttonSize);
+      const expectedHeight = metrics.height;
+      if (Math.abs(size.height - expectedHeight) <= 4 && (buttonSize === "large" ? Math.abs(size.width - (metrics.width ?? size.width)) <= 4 : size.width >= (metrics.minWidth ?? 0) - 8)) {
+        patch.buttonSize = buttonSize;
+      }
+    }
+    const titleSize = titleSizeFromPanelSize(size);
+    if (!patch.imageModules && !patch.sliderColumns && !patch.buttonSize && titleSize) {
+      patch.titleSize = titleSize;
+    }
+    if (Object.keys(patch).length > 0) {
+      settings[id] = patch;
+    }
+  }
+  return settings;
+}
+
+// src/layout/snapshot.ts
+function createLayoutSnapshot(state) {
+  return {
+    positions: state.uiPositions,
+    sizes: state.uiSizes,
+    panelSettings: state.panelSettings,
+    sliderColumnCount: state.sliderColumnCount,
+    imagePreviewModules: state.imagePreviewModules
+  };
+}
+function layoutSnapshotToStoreInit(snapshot, options) {
+  const panelSettings = snapshot.panelSettings ?? derivePanelSettingsFromSnapshot(snapshot.sizes);
+  return {
+    initialPositions: snapshot.positions,
+    initialSizes: snapshot.sizes ?? {},
+    panelSettings,
+    sliderColumnCount: snapshot.sliderColumnCount,
+    imagePreviewModules: snapshot.imagePreviewModules,
+    layoutMode: options?.layoutMode
+  };
+}
+function formatLayoutModule(snapshot) {
+  const body = JSON.stringify(snapshot, null, 2);
+  return [
+    `import type { PrismaticLayoutSnapshot } from "@prismatic/core"`,
+    ``,
+    `/** Auto-generated by \`npm run layout\`. Edits here become the default layout for dev and build. */`,
+    `export const PRISMATIC_LAYOUT: PrismaticLayoutSnapshot = ${body}`,
+    ``
+  ].join("\n");
+}
+
+// src/layout/useLayoutPersistence.ts
+var DEFAULT_ENDPOINT = "/__prismatic/save-layout";
+function useLayoutPersistence(useStore, { endpoint = DEFAULT_ENDPOINT } = {}) {
+  const [status, setStatus] = react.useState("idle");
+  const [error, setError] = react.useState(null);
+  const savedTimerRef = react.useRef(null);
+  const saveLayout = react.useCallback(async () => {
+    const state = useStore.getState();
+    const snapshot = createLayoutSnapshot(state);
+    setStatus("saving");
+    setError(null);
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(snapshot)
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error ?? `Save failed (${response.status})`);
+      }
+      setStatus("saved");
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => {
+        setStatus("idle");
+        savedTimerRef.current = null;
+      }, 1500);
+    } catch (cause) {
+      setStatus("error");
+      setError(cause instanceof Error ? cause.message : "Failed to save layout");
+    }
+  }, [endpoint, useStore]);
+  return { status, error, saveLayout };
+}
+function LayoutModeChrome() {
+  const useStore = usePrismaticStore();
+  const { status, error, saveLayout } = useLayoutPersistence(useStore);
+  const isSaving = status === "saving";
+  return /* @__PURE__ */ jsxRuntime.jsx("div", { className: "pointer-events-none fixed bottom-4 left-1/2 z-50 -translate-x-1/2", children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "flex items-center gap-3 rounded-full border border-white/15 bg-[var(--prismatic-overlay-bg)] px-4 py-2 text-[11px] lowercase tracking-wide text-white/85 shadow-lg backdrop-blur-md", children: [
+    /* @__PURE__ */ jsxRuntime.jsx("span", { className: "text-white", children: "layout mode" }),
+    /* @__PURE__ */ jsxRuntime.jsx("span", { className: "text-white/35", children: "\xB7" }),
+    /* @__PURE__ */ jsxRuntime.jsx("span", { className: "text-white/55", children: "press w to toggle workspace" }),
+    /* @__PURE__ */ jsxRuntime.jsx(
+      "button",
+      {
+        type: "button",
+        disabled: isSaving,
+        onClick: () => void saveLayout(),
+        className: "pointer-events-auto rounded-full bg-white/15 px-3 py-1 text-white transition-colors hover:bg-white/25 disabled:opacity-50",
+        children: isSaving ? "saving\u2026" : "save layout"
+      }
+    ),
+    status === "saved" ? /* @__PURE__ */ jsxRuntime.jsx("span", { className: "text-white/65", children: "saved" }) : null,
+    status === "error" ? /* @__PURE__ */ jsxRuntime.jsx("span", { className: "text-[var(--prismatic-accent)]", children: error ?? "save failed" }) : null
+  ] }) });
+}
+
+// src/layout/mode.ts
+function isLayoutMode() {
+  const value = undefined?.PRISMATIC_LAYOUT_MODE;
+  return value === true || value === "true";
+}
+
+// src/canvas/resolution.ts
+var CANVAS_RESOLUTION_SCALES = [1, 0.5, 0.25];
+var DEFAULT_CANVAS_RESOLUTION_SCALE = 1;
+function clampCanvasResolutionScale(scale) {
+  if (scale == null || !Number.isFinite(scale)) return DEFAULT_CANVAS_RESOLUTION_SCALE;
+  return CANVAS_RESOLUTION_SCALES.reduce(
+    (closest, candidate) => Math.abs(candidate - scale) < Math.abs(closest - scale) ? candidate : closest
+  );
+}
+function resolveCanvasResolutionSize(logicalWidth, logicalHeight, scale) {
+  return {
+    scale,
+    logicalWidth,
+    logicalHeight,
+    pixelWidth: Math.max(1, Math.round(logicalWidth * scale)),
+    pixelHeight: Math.max(1, Math.round(logicalHeight * scale))
+  };
+}
+function formatCanvasResolutionScale(scale) {
+  if (scale === 1) return "full";
+  if (scale === 0.5) return "half";
+  return "quarter";
+}
+
 // src/store/createPrismaticStore.ts
 var SNAP_FLASH_MS = 100;
 var snapFlashTimer = null;
@@ -641,6 +1314,7 @@ function createPrismaticStore(init = {}) {
     workspaceMode: init.workspaceMode ?? false,
     uiPositions: init.initialPositions ?? {},
     uiSizes: init.initialSizes ?? {},
+    panelSettings: init.panelSettings ?? {},
     uiDragDebug: null,
     canvasDragDebug: null,
     snapFlashIds: [],
@@ -658,6 +1332,12 @@ function createPrismaticStore(init = {}) {
     },
     setUiGroupSize: (id, size) => set((s) => ({
       uiSizes: { ...s.uiSizes, [id]: size }
+    })),
+    setPanelSetting: (id, patch) => set((s) => ({
+      panelSettings: {
+        ...s.panelSettings,
+        [id]: { ...s.panelSettings[id], ...patch }
+      }
     })),
     setUiGroupPosition: (id, position) => set((s) => ({
       uiPositions: { ...s.uiPositions, [id]: position }
@@ -704,6 +1384,7 @@ function PrismaticProvider({
   storeInit,
   children
 }) {
+  const layoutMode = storeInit?.layoutMode ?? isLayoutMode();
   const resolvedConfig = react.useMemo(() => {
     const resolved = resolvePrismaticConfig(config);
     setRuntimeConfig(resolved);
@@ -735,22 +1416,10 @@ function PrismaticProvider({
       }
     };
   }, [themeStyle]);
-  return /* @__PURE__ */ jsxRuntime.jsx(PrismaticStoreContext.Provider, { value: store, children: /* @__PURE__ */ jsxRuntime.jsx("div", { className: "prismatic-root contents", style: themeStyle, children }) });
-}
-function usePrismaticStore() {
-  const store = react.useContext(PrismaticStoreContext);
-  if (!store) {
-    throw new Error("usePrismaticStore must be used within PrismaticProvider");
-  }
-  return store;
-}
-function useWorkspaceMode() {
-  const useStore = usePrismaticStore();
-  return useStore((s) => s.workspaceMode);
-}
-function usePanelPosition(id) {
-  const useStore = usePrismaticStore();
-  return useStore((s) => s.uiPositions[id]);
+  return /* @__PURE__ */ jsxRuntime.jsx(PrismaticStoreContext.Provider, { value: store, children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "prismatic-root contents", style: themeStyle, children: [
+    children,
+    layoutMode ? /* @__PURE__ */ jsxRuntime.jsx(LayoutModeChrome, {}) : null
+  ] }) });
 }
 
 // src/workspace/snap.ts
@@ -1522,6 +2191,9 @@ var ZOOM_DIST_REF = 0.22;
 var ZOOM_MAX_STEP = 0.042;
 var ZOOM_SETTLE_EPS = 4e-3;
 var easeOutQuad = (t) => t * (2 - t);
+var waitForCanvasFrame = () => new Promise((resolve) => {
+  requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+});
 function applyCanvasDisplaySize(p, renderer, size) {
   const canvas = renderer?.elt ?? p.canvas;
   if (!canvas) return;
@@ -1755,6 +2427,57 @@ var CreativeCanvas = react.forwardRef(
         el.style.willChange = "auto";
       };
     }, [workspaceMode]);
+    const captureCanvasDataUrl = react.useCallback(async () => {
+      const p = pInstRef.current;
+      if (!p) return null;
+      const canvasEl = containerRef.current?.querySelector("canvas");
+      const exportFullResolution = p.exportPrismaticCanvasDataUrl;
+      if (exportFullResolution) {
+        try {
+          const dataUrl = await exportFullResolution();
+          if (dataUrl) return dataUrl;
+        } catch (error) {
+          console.warn(
+            "Full-resolution canvas export failed, falling back to current canvas:",
+            error
+          );
+        }
+      }
+      if (canvasEl) {
+        try {
+          return canvasEl.toDataURL("image/png");
+        } catch (error) {
+          console.warn("Canvas export failed:", error);
+        }
+      }
+      return null;
+    }, []);
+    const applyFrameAsSource = react.useCallback(async () => {
+      const p = pInstRef.current;
+      if (!p) return null;
+      const dataUrl = await captureCanvasDataUrl();
+      if (!dataUrl) return null;
+      sourceRef.current = { url: dataUrl, kind: "image" };
+      await new Promise((resolve) => {
+        const token = ++imageLoadTokenRef.current;
+        p.loadImage(
+          dataUrl,
+          (img) => {
+            if (token !== imageLoadTokenRef.current) {
+              resolve();
+              return;
+            }
+            p.updateImage?.(img, { fullResolution: true });
+            resolve();
+          },
+          () => {
+            console.error("Failed to load captured frame");
+            resolve();
+          }
+        );
+      });
+      return dataUrl;
+    }, [captureCanvasDataUrl]);
     react.useImperativeHandle(ref, () => ({
       loadSource: (url, kind) => {
         const p = pInstRef.current;
@@ -1767,14 +2490,14 @@ var CreativeCanvas = react.forwardRef(
         }
         loadImageSource(url);
       },
+      exportCanvasDataUrl: captureCanvasDataUrl,
+      applyFrameAsSource,
       saveCanvas: (filename) => {
         const p = pInstRef.current;
         if (!p) return;
-        const container = containerRef.current;
         const prefix = canvasConfig().downloadFilePrefix;
         const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
         const name = filename ?? `${prefix}_${timestamp}`;
-        const canvasEl = container?.querySelector("canvas");
         const downloadDataUrl = (dataUrl) => {
           const a = document.createElement("a");
           a.href = dataUrl;
@@ -1783,44 +2506,17 @@ var CreativeCanvas = react.forwardRef(
           a.click();
           a.remove();
         };
-        const saveCurrentCanvas = () => {
-          if (canvasEl) {
-            const dataUrl = canvasEl.toDataURL("image/png");
+        void captureCanvasDataUrl().then((dataUrl) => {
+          if (dataUrl) {
             downloadDataUrl(dataUrl);
-          } else {
-            p.saveCanvas(name, "png");
-          }
-        };
-        if (canvasEl) {
-          const exportFullResolution = p.exportPrismaticCanvasDataUrl;
-          if (exportFullResolution) {
-            void exportFullResolution().then((dataUrl) => {
-              if (!dataUrl) {
-                saveCurrentCanvas();
-                return;
-              }
-              downloadDataUrl(dataUrl);
-            }).catch((error) => {
-              console.warn(
-                "Full-resolution canvas export failed, falling back to current canvas:",
-                error
-              );
-              saveCurrentCanvas();
-            });
             return;
           }
-          try {
-            saveCurrentCanvas();
-            return;
-          } catch (error) {
-            console.warn("Canvas download failed, falling back to p5:", error);
-          }
-          p.saveCanvas(canvasEl, name, "png");
-        } else {
           p.saveCanvas(name, "png");
-        }
+        }).catch(() => {
+          p.saveCanvas(name, "png");
+        });
       }
-    }));
+    }), [applyFrameAsSource, captureCanvasDataUrl, loadImageSource]);
     react.useEffect(() => {
       const el = containerRef.current;
       if (!el) return;
@@ -1882,7 +2578,9 @@ var CreativeCanvas = react.forwardRef(
             if (source?.kind === "image") {
               await loadImageAtScale(source.url, 1);
             }
+            await waitForCanvasFrame();
             p.redraw?.();
+            await waitForCanvasFrame();
             const canvas = canvasP.canvas;
             return canvas?.toDataURL("image/png") ?? null;
           } finally {
@@ -2525,6 +3223,7 @@ function WorkspaceShell({
   return /* @__PURE__ */ jsxRuntime.jsxs(
     "div",
     {
+      "data-workspace-mode": workspaceMode ? "" : void 0,
       className: `pointer-events-none fixed inset-0 ${workspaceMode ? "z-30" : "z-10"}`,
       children: [
         children,
@@ -2955,7 +3654,7 @@ function FloatingHelp({
 }
 var APP_TITLE_TEXT_SM = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[13px] leading-[1.1] tracking-[-0.26px] lowercase";
 var APP_TITLE_TEXT_LG = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] lowercase";
-var SIZE_METRICS = {
+var SIZE_METRICS2 = {
   small: {
     textClass: APP_TITLE_TEXT_SM,
     lineHeight: 14,
@@ -2982,7 +3681,7 @@ function AppTitle({
   style,
   logoImgProps
 }) {
-  const metrics = SIZE_METRICS[size];
+  const metrics = SIZE_METRICS2[size];
   const logoHeight = metrics.lineHeight * (subtitle ? 2 : 1);
   const resolvedLogo = logo ?? (logoSrc ? /* @__PURE__ */ jsxRuntime.jsx(
     "img",
@@ -3090,18 +3789,23 @@ function AppTitlePanel({
   const useStore = usePrismaticStore();
   const workspaceMode = useStore((s) => s.workspaceMode);
   const setUiGroupSize = useStore((s) => s.setUiGroupSize);
+  const setPanelSetting = useStore((s) => s.setPanelSetting);
   const workspacePanel = useWorkspacePanel();
   const resolvedPanelId = panelId ?? workspacePanel?.id ?? "app-title";
   const rootRef = react.useRef(null);
   const resizeStartRef = react.useRef(null);
   const hideTimerRef = react.useRef(null);
-  const [internalSize, setInternalSize] = react.useState(defaultSize);
+  const [internalSize, setInternalSize] = react.useState(() => {
+    const state = useStore.getState();
+    return state.panelSettings[resolvedPanelId]?.titleSize ?? titleSizeFromPanelSize(state.uiSizes[resolvedPanelId]) ?? defaultSize;
+  });
   const [resizing, setResizing] = react.useState(false);
   const [controlsOpen, setControlsOpen] = react.useState(false);
   const currentSize = size ?? internalSize;
   const allowedSizes = [...sizeOptions];
   const setTitleSize = (next) => {
     if (size === void 0) setInternalSize(next);
+    setPanelSetting(resolvedPanelId, { titleSize: next });
     onSizeChange?.(next);
   };
   react.useEffect(() => {
@@ -3147,6 +3851,12 @@ function AppTitlePanel({
   react.useEffect(() => {
     if (workspaceMode && panelHovered) openControls();
   }, [panelHovered, workspaceMode]);
+  react.useEffect(() => {
+    if (workspaceMode && !panelHovered && !resizing) {
+      clearHideTimer();
+      setControlsOpen(false);
+    }
+  }, [workspaceMode, panelHovered, resizing]);
   const onResizePointerDown = (e) => {
     if (!workspaceMode || e.button !== 0) return;
     const el = rootRef.current;
@@ -3189,7 +3899,7 @@ function AppTitlePanel({
       onMouseLeave: scheduleCloseControls,
       children: /* @__PURE__ */ jsxRuntime.jsxs("div", { ref: rootRef, className: "workspace-panel relative w-fit", children: [
         /* @__PURE__ */ jsxRuntime.jsx(AppTitle, { ...titleProps, size: currentSize }),
-        showControls && /* @__PURE__ */ jsxRuntime.jsx("div", { className: "workspace-controls pointer-events-auto absolute left-0 -top-9 z-30", children: /* @__PURE__ */ jsxRuntime.jsx(
+        showControls && /* @__PURE__ */ jsxRuntime.jsx("div", { className: "workspace-controls pointer-events-auto absolute left-1 top-1 z-30", children: /* @__PURE__ */ jsxRuntime.jsx(
           TitleSizeToolbar,
           {
             size: currentSize,
@@ -3212,7 +3922,7 @@ function AppTitlePanel({
             children: /* @__PURE__ */ jsxRuntime.jsx("div", { className: "absolute right-0.5 bottom-0.5 size-2 rounded-sm border-r border-b border-[var(--prismatic-accent-stroke)] opacity-70" })
           }
         ),
-        workspaceMode && resizing && /* @__PURE__ */ jsxRuntime.jsx("div", { className: "workspace-controls prismatic-bg-overlay prismatic-text-primary pointer-events-none absolute bottom-[-30px] left-1/2 z-30 -translate-x-1/2 rounded-full px-2 py-0.5 text-[10px] lowercase backdrop-blur-sm", children: currentSize === "small" ? "S" : "M" })
+        workspaceMode && resizing && /* @__PURE__ */ jsxRuntime.jsx("div", { className: "workspace-controls prismatic-bg-overlay prismatic-text-primary pointer-events-none absolute bottom-1 left-1/2 z-30 -translate-x-1/2 rounded-full px-2 py-0.5 text-[10px] lowercase backdrop-blur-sm", children: currentSize === "small" ? "S" : "M" })
       ] })
     }
   );
@@ -3288,15 +3998,22 @@ function ImageSizeToolbar({ modules, onChange }) {
 function ImagePanel({ children, panelId = "image" }) {
   const useStore = usePrismaticStore();
   const workspaceMode = useStore((s) => s.workspaceMode);
-  const imageModules = useStore((s) => s.imagePreviewModules);
+  const globalImageModules = useStore((s) => s.imagePreviewModules);
   const setImagePreviewModules = useStore((s) => s.setImagePreviewModules);
   const setUiGroupSize = useStore((s) => s.setUiGroupSize);
+  const setPanelSetting = useStore((s) => s.setPanelSetting);
+  const panelImageModules = useStore((s) => s.panelSettings[panelId]?.imageModules);
   const workspacePanel = useWorkspacePanel();
   const resizeStartRef = react.useRef(null);
   const hideTimerRef = react.useRef(null);
   const [resizing, setResizing] = react.useState(false);
   const [controlsOpen, setControlsOpen] = react.useState(false);
+  const imageModules = panelImageModules ?? globalImageModules;
   const panelSize = imagePanelSize(imageModules);
+  const setImageModules = (modules) => {
+    setImagePreviewModules(modules);
+    setPanelSetting(panelId, { imageModules: modules });
+  };
   react.useEffect(() => {
     setUiGroupSize(panelId, panelSize);
   }, [panelId, panelSize, setUiGroupSize]);
@@ -3329,6 +4046,12 @@ function ImagePanel({ children, panelId = "image" }) {
   react.useEffect(() => {
     if (workspaceMode && panelHovered) openControls();
   }, [panelHovered, workspaceMode]);
+  react.useEffect(() => {
+    if (workspaceMode && !panelHovered && !resizing) {
+      clearHideTimer();
+      setControlsOpen(false);
+    }
+  }, [workspaceMode, panelHovered, resizing]);
   const onResizePointerDown = (e) => {
     if (!workspaceMode || e.button !== 0) return;
     e.preventDefault();
@@ -3342,7 +4065,7 @@ function ImagePanel({ children, panelId = "image" }) {
     if (!resizing || !resizeStartRef.current) return;
     const delta = e.clientX - resizeStartRef.current.x;
     const nextSize = resizeStartRef.current.size + delta;
-    setImagePreviewModules(imageModulesFromSize(nextSize));
+    setImageModules(imageModulesFromSize(nextSize));
   };
   const finishResize = (e) => {
     if (!resizing) return;
@@ -3367,7 +4090,7 @@ function ImagePanel({ children, panelId = "image" }) {
           style: panelSize,
           children: [
             /* @__PURE__ */ jsxRuntime.jsx(ImagePanelSizeContext.Provider, { value: panelSize.width, children: /* @__PURE__ */ jsxRuntime.jsx("div", { className: "flex size-full items-center justify-center", children }) }),
-            showControls && /* @__PURE__ */ jsxRuntime.jsx("div", { className: "workspace-controls pointer-events-auto absolute left-1 top-1 z-30", children: /* @__PURE__ */ jsxRuntime.jsx(ImageSizeToolbar, { modules: imageModules, onChange: setImagePreviewModules }) }),
+            showControls && /* @__PURE__ */ jsxRuntime.jsx("div", { className: "workspace-controls pointer-events-auto absolute left-1 top-1 z-30", children: /* @__PURE__ */ jsxRuntime.jsx(ImageSizeToolbar, { modules: imageModules, onChange: setImageModules }) }),
             workspaceMode && /* @__PURE__ */ jsxRuntime.jsx(
               "div",
               {
@@ -3460,17 +4183,24 @@ function SliderColumnToolbar({ columnCount, onChange }) {
 function SlidersPanel({ children, panelId = "sliders" }) {
   const useStore = usePrismaticStore();
   const workspaceMode = useStore((s) => s.workspaceMode);
-  const columnCount = useStore((s) => s.sliderColumnCount);
+  const globalColumnCount = useStore((s) => s.sliderColumnCount);
   const setSliderColumnCount = useStore((s) => s.setSliderColumnCount);
+  const setPanelSetting = useStore((s) => s.setPanelSetting);
+  const panelColumnCount = useStore((s) => s.panelSettings[panelId]?.sliderColumns);
   const workspacePanel = useWorkspacePanel();
   const resizeStartRef = react.useRef(null);
   const hideTimerRef = react.useRef(null);
   const [resizing, setResizing] = react.useState(false);
   const [controlsOpen, setControlsOpen] = react.useState(false);
   const sliderCount = react.Children.count(children);
+  const columnCount = panelColumnCount ?? globalColumnCount;
   const panelSize = slidersPanelSize(columnCount, sliderCount);
   const columnWidth = sliderColumnWidthPx();
   const columns = chunkIntoColumns(react.Children.toArray(children), columnCount);
+  const setColumnCount = (count) => {
+    setSliderColumnCount(count);
+    setPanelSetting(panelId, { sliderColumns: count });
+  };
   const clearHideTimer = () => {
     if (hideTimerRef.current) {
       clearTimeout(hideTimerRef.current);
@@ -3500,6 +4230,12 @@ function SlidersPanel({ children, panelId = "sliders" }) {
   react.useEffect(() => {
     if (workspaceMode && panelHovered) openControls();
   }, [panelHovered, workspaceMode]);
+  react.useEffect(() => {
+    if (workspaceMode && !panelHovered && !resizing) {
+      clearHideTimer();
+      setControlsOpen(false);
+    }
+  }, [workspaceMode, panelHovered, resizing]);
   const onResizePointerDown = (e) => {
     if (!workspaceMode || e.button !== 0) return;
     e.preventDefault();
@@ -3513,7 +4249,7 @@ function SlidersPanel({ children, panelId = "sliders" }) {
     if (!resizing || !resizeStartRef.current) return;
     const delta = e.clientX - resizeStartRef.current.x;
     const nextWidth = resizeStartRef.current.width + delta;
-    setSliderColumnCount(columnCountFromWidth(nextWidth));
+    setColumnCount(columnCountFromWidth(nextWidth));
   };
   const finishResize = (e) => {
     if (!resizing) return;
@@ -3557,7 +4293,7 @@ function SlidersPanel({ children, panelId = "sliders" }) {
               SliderColumnToolbar,
               {
                 columnCount,
-                onChange: setSliderColumnCount
+                onChange: setColumnCount
               }
             ) }),
             workspaceMode && /* @__PURE__ */ jsxRuntime.jsx(
@@ -3587,435 +4323,197 @@ function SlidersPanel({ children, panelId = "sliders" }) {
     }
   );
 }
-var BUTTON_TEXT_LG = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] lowercase";
-var BUTTON_ELLIPSE_WIDTH = 274;
-var BUTTON_ELLIPSE_HEIGHT = 120;
-function ButtonEllipseVisual({
-  active,
-  children,
-  width = BUTTON_ELLIPSE_WIDTH,
-  height = BUTTON_ELLIPSE_HEIGHT,
-  className = ""
-}) {
-  return /* @__PURE__ */ jsxRuntime.jsxs(
-    "div",
-    {
-      className: `relative isolate flex items-center justify-center ${className}`,
-      style: { width, height },
-      children: [
-        /* @__PURE__ */ jsxRuntime.jsx(
-          "svg",
-          {
-            viewBox: `0 0 ${BUTTON_ELLIPSE_WIDTH} ${BUTTON_ELLIPSE_HEIGHT}`,
-            preserveAspectRatio: "none",
-            "aria-hidden": "true",
-            className: "pointer-events-none absolute inset-0 size-full",
-            children: /* @__PURE__ */ jsxRuntime.jsx(
-              "ellipse",
-              {
-                cx: "137",
-                cy: "60",
-                rx: "136",
-                ry: "59",
-                fill: active ? "var(--prismatic-surface-active)" : "transparent",
-                stroke: active ? "transparent" : "var(--prismatic-accent-stroke)",
-                strokeWidth: "1",
-                vectorEffect: "non-scaling-stroke"
-              }
-            )
-          }
-        ),
-        /* @__PURE__ */ jsxRuntime.jsx(
-          "span",
-          {
-            className: `relative z-[2] mix-blend-normal ${active ? "prismatic-text-on-active" : "prismatic-text-muted"} ${BUTTON_TEXT_LG}`,
-            children
-          }
-        )
-      ]
-    }
-  );
+var HOVER_GRACE_MS4 = 220;
+var DEFAULT_BUTTON_SIZES = ["small", "medium", "large"];
+var RESIZE_STEP_PX2 = 48;
+var SIZE_LABELS = {
+  small: "S",
+  medium: "M",
+  large: "L"
+};
+function clampIndex2(index, max) {
+  return Math.max(0, Math.min(max, index));
 }
-function Button({
-  children,
-  width = BUTTON_ELLIPSE_WIDTH,
-  height = BUTTON_ELLIPSE_HEIGHT,
-  className = "",
-  type = "button",
-  disabled,
-  onMouseEnter,
-  onMouseLeave,
-  onFocus,
-  onBlur,
-  ...rest
+function ButtonSizeToolbar({
+  size,
+  options,
+  onChange
 }) {
-  const [isActive, setIsActive] = react.useState(false);
-  const active = !disabled && isActive;
   return /* @__PURE__ */ jsxRuntime.jsx(
-    "button",
-    {
-      type,
-      disabled,
-      className: `relative flex cursor-pointer select-none items-center justify-center outline-none disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:outline-none ${className}`,
-      style: { width, height },
-      onMouseEnter: (e) => {
-        if (!disabled) setIsActive(true);
-        onMouseEnter?.(e);
-      },
-      onMouseLeave: (e) => {
-        setIsActive(false);
-        onMouseLeave?.(e);
-      },
-      onFocus: (e) => {
-        if (!disabled) setIsActive(true);
-        onFocus?.(e);
-      },
-      onBlur: (e) => {
-        setIsActive(false);
-        onBlur?.(e);
-      },
-      ...rest,
-      children: /* @__PURE__ */ jsxRuntime.jsx(ButtonEllipseVisual, { active, width, height, children })
-    }
-  );
-}
-var DEFAULT_SLIDER_LINE_TOP = `data:image/svg+xml,${encodeURIComponent(
-  `<svg preserveAspectRatio="none" width="100%" height="100%" overflow="visible" style="display: block;" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><g opacity="1"><line x1="0.86003" y1="-0.86003" x2="17.1552" y2="-0.86003" stroke="white" style="mix-blend-mode:difference" stroke-width="1.72006" stroke-linecap="round"/></g></svg>`
-)}`;
-var DEFAULT_SLIDER_LINE_BOTTOM = `data:image/svg+xml,${encodeURIComponent(
-  `<svg preserveAspectRatio="none" width="100%" height="100%" overflow="visible" style="display: block;" viewBox="0 0 18.0153 1.72006" fill="none" xmlns="http://www.w3.org/2000/svg"><g><line x1="0.86003" y1="0.86003" x2="17.1552" y2="0.86003" stroke="white" style="mix-blend-mode:difference" stroke-width="1.72006" stroke-linecap="round"/></g></svg>`
-)}`;
-function clamp(n, lo, hi) {
-  return Math.min(hi, Math.max(lo, n));
-}
-function snapToStep(value, min, step) {
-  const steps = Math.round((value - min) / step);
-  return min + steps * step;
-}
-var ROW_H = 28;
-var INNER_STACK_H = ROW_H + 4 + ROW_H;
-var OUTER_H = 70;
-var OUTER_PAD_Y = 8;
-var DEFAULT_ROW_H = OUTER_H - OUTER_PAD_Y;
-var INNER_PAD = 4;
-var FALLBACK_RADIUS = 32;
-function Slider({
-  label,
-  value,
-  min,
-  max,
-  step = 0.01,
-  displayValue,
-  onChange,
-  lineTopSrc = DEFAULT_SLIDER_LINE_TOP,
-  lineBottomSrc = DEFAULT_SLIDER_LINE_BOTTOM
-}) {
-  const trackAreaRef = react.useRef(null);
-  const hitAreaRef = react.useRef(null);
-  const draggingRef = react.useRef(false);
-  const [hovered, setHovered] = react.useState(false);
-  const [dragging, setDragging] = react.useState(false);
-  const [trackWidthPx, setTrackWidthPx] = react.useState(0);
-  const [innerCornerPx, setInnerCornerPx] = react.useState(
-    FALLBACK_RADIUS - INNER_PAD
-  );
-  const [editingValue, setEditingValue] = react.useState(false);
-  const [draftValue, setDraftValue] = react.useState("");
-  const valueInputRef = react.useRef(null);
-  react.useEffect(() => {
-    const el = trackAreaRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => {
-      setTrackWidthPx(el.getBoundingClientRect().width);
-    });
-    ro.observe(el);
-    setTrackWidthPx(el.getBoundingClientRect().width);
-    return () => ro.disconnect();
-  }, []);
-  react.useEffect(() => {
-    const raw = getComputedStyle(document.documentElement).getPropertyValue(
-      "--radius"
-    );
-    const parsed = parseFloat(raw);
-    if (Number.isFinite(parsed)) setInnerCornerPx(parsed - INNER_PAD);
-  }, []);
-  const normalized = max === min ? 0 : clamp((value - min) / (max - min), 0, 1);
-  const shown = displayValue?.(value) ?? (Number.isInteger(step) && step >= 1 ? String(Math.round(value)) : value.toFixed(4).replace(/\.?0+$/, ""));
-  const isBoolean = min === 0 && max === 1 && step === 1;
-  const isToggle = isBoolean;
-  const minLabel = isBoolean ? "false" : String(min);
-  const maxLabel = isBoolean ? "true" : String(max);
-  react.useEffect(() => {
-    if (!editingValue) return;
-    valueInputRef.current?.focus();
-    valueInputRef.current?.select();
-  }, [editingValue]);
-  const commitDraftValue = react.useCallback(() => {
-    if (isToggle) return;
-    const raw = Number(draftValue.trim());
-    if (!Number.isFinite(raw)) {
-      setEditingValue(false);
-      setDraftValue("");
-      return;
-    }
-    const snapped = snapToStep(raw, min, step);
-    const clamped = clamp(snapped, min, max);
-    onChange(clamped);
-    setEditingValue(false);
-    setDraftValue("");
-  }, [draftValue, isToggle, max, min, onChange, step]);
-  const cancelDraftValue = react.useCallback(() => {
-    setEditingValue(false);
-    setDraftValue("");
-  }, []);
-  const setFromClientX = react.useCallback(
-    (clientX) => {
-      const el = hitAreaRef.current ?? trackAreaRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      if (rect.width <= 0) return;
-      const t = clamp((clientX - rect.left) / rect.width, 0, 1);
-      const raw = min + t * (max - min);
-      const next = snapToStep(raw, min, step);
-      const clamped = clamp(next, min, max);
-      if (clamped !== value) onChange(clamped);
-    },
-    [max, min, onChange, step, value]
-  );
-  const onPointerDown = (e) => {
-    e.preventDefault();
-    if (isToggle) {
-      onChange(value >= 0.5 ? 0 : 1);
-      return;
-    }
-    draggingRef.current = true;
-    setDragging(true);
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setFromClientX(e.clientX);
-  };
-  const onPointerMove = (e) => {
-    if (isToggle) return;
-    if (!draggingRef.current) return;
-    setFromClientX(e.clientX);
-  };
-  const onPointerUp = (e) => {
-    if (isToggle) return;
-    draggingRef.current = false;
-    setDragging(false);
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {
-    }
-  };
-  const fillPct = react.useMemo(() => normalized * 100, [normalized]);
-  const showRange = hovered || dragging;
-  const showHandle = hovered || dragging;
-  const pillWidthStyle = react.useMemo(() => {
-    const minPx = innerCornerPx * 2;
-    if (fillPct <= 0) return { width: "0%", minWidth: void 0 };
-    if (fillPct >= 100) return { width: "100%", minWidth: void 0 };
-    if (trackWidthPx <= 0) return { width: `${fillPct}%`, minWidth: void 0 };
-    const minPct = minPx / trackWidthPx * 100;
-    const visualPct = Math.max(fillPct, minPct);
-    return {
-      width: `${visualPct}%`,
-      minWidth: visualPct === minPct && fillPct < minPct ? `${minPx}px` : void 0
-    };
-  }, [fillPct, trackWidthPx, innerCornerPx]);
-  const stackHeight = showRange ? INNER_STACK_H : DEFAULT_ROW_H;
-  const topRowHeight = showRange ? ROW_H : DEFAULT_ROW_H;
-  const topRowHeightStyle = { height: topRowHeight, minHeight: topRowHeight };
-  const bottomRowHeightStyle = { height: ROW_H, minHeight: ROW_H };
-  return /* @__PURE__ */ jsxRuntime.jsxs(
     "div",
     {
-      className: "prismatic-surface-frame prismatic-corners relative box-border flex w-full flex-col justify-center overflow-hidden p-1",
-      style: {
-        ...PRISMATIC_SURFACE_FRAME_STYLE,
-        height: OUTER_H,
-        minHeight: OUTER_H,
-        maxHeight: OUTER_H
-      },
-      onPointerEnter: () => setHovered(true),
-      onPointerLeave: () => setHovered(false),
-      children: [
-        /* @__PURE__ */ jsxRuntime.jsx(
+      className: "workspace-controls prismatic-bg-overlay prismatic-text-primary flex items-center gap-0.5 rounded-full p-0.5 shadow-lg backdrop-blur-sm",
+      role: "toolbar",
+      "aria-label": "Button size",
+      children: options.map((option) => {
+        const active = option === size;
+        return /* @__PURE__ */ jsxRuntime.jsx(
+          "button",
+          {
+            type: "button",
+            title: `${option} button`,
+            "aria-pressed": active,
+            className: [
+              "rounded-full px-2 py-1 text-[10px] transition-colors",
+              active ? "prismatic-bg-surface-active prismatic-text-on-active" : "prismatic-text-primary hover:prismatic-bg-border-subtle"
+            ].join(" "),
+            onPointerDown: (e) => e.stopPropagation(),
+            onClick: () => onChange(option),
+            children: SIZE_LABELS[option]
+          },
+          option
+        );
+      })
+    }
+  );
+}
+function ButtonPanel({
+  panelId,
+  size: controlledSize,
+  defaultSize = "large",
+  sizeOptions = DEFAULT_BUTTON_SIZES,
+  onSizeChange,
+  children,
+  ...buttonProps
+}) {
+  const useStore = usePrismaticStore();
+  const workspaceMode = useStore((s) => s.workspaceMode);
+  const setUiGroupSize = useStore((s) => s.setUiGroupSize);
+  const setPanelSetting = useStore((s) => s.setPanelSetting);
+  const workspacePanel = useWorkspacePanel();
+  const resolvedPanelId = panelId ?? workspacePanel?.id ?? "button";
+  const rootRef = react.useRef(null);
+  const resizeStartRef = react.useRef(null);
+  const hideTimerRef = react.useRef(null);
+  const [internalSize, setInternalSize] = react.useState(() => {
+    const state = useStore.getState();
+    return state.panelSettings[resolvedPanelId]?.buttonSize ?? buttonSizeFromPanelSize(state.uiSizes[resolvedPanelId]) ?? defaultSize;
+  });
+  const [resizing, setResizing] = react.useState(false);
+  const [controlsOpen, setControlsOpen] = react.useState(false);
+  const currentSize = controlledSize ?? internalSize;
+  const allowedSizes = [...sizeOptions];
+  const setButtonSize = (next) => {
+    if (controlledSize === void 0) setInternalSize(next);
+    setPanelSetting(resolvedPanelId, { buttonSize: next });
+    onSizeChange?.(next);
+  };
+  react.useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const updateSize = () => {
+      setUiGroupSize(resolvedPanelId, {
+        width: el.offsetWidth,
+        height: el.offsetHeight
+      });
+    };
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [resolvedPanelId, currentSize, setUiGroupSize]);
+  const clearHideTimer = () => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  };
+  const openControls = () => {
+    clearHideTimer();
+    setControlsOpen(true);
+  };
+  const scheduleCloseControls = () => {
+    if (resizing) return;
+    clearHideTimer();
+    hideTimerRef.current = setTimeout(() => {
+      setControlsOpen(false);
+      hideTimerRef.current = null;
+    }, HOVER_GRACE_MS4);
+  };
+  react.useEffect(() => () => clearHideTimer(), []);
+  react.useEffect(() => {
+    if (!workspaceMode) {
+      clearHideTimer();
+      setControlsOpen(false);
+    }
+  }, [workspaceMode]);
+  const panelHovered = workspacePanel?.id === resolvedPanelId && workspacePanel.hovered;
+  react.useEffect(() => {
+    if (workspaceMode && panelHovered) openControls();
+  }, [panelHovered, workspaceMode]);
+  react.useEffect(() => {
+    if (workspaceMode && !panelHovered && !resizing) {
+      clearHideTimer();
+      setControlsOpen(false);
+    }
+  }, [workspaceMode, panelHovered, resizing]);
+  const onResizePointerDown = (e) => {
+    if (!workspaceMode || e.button !== 0) return;
+    const el = rootRef.current;
+    if (!el) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openControls();
+    resizeStartRef.current = {
+      x: e.clientX,
+      size: currentSize
+    };
+    setResizing(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onResizePointerMove = (e) => {
+    if (!resizing || !resizeStartRef.current) return;
+    const delta = e.clientX - resizeStartRef.current.x;
+    const startIndex = Math.max(
+      0,
+      allowedSizes.indexOf(resizeStartRef.current.size)
+    );
+    const nextIndex = clampIndex2(
+      startIndex + Math.round(delta / RESIZE_STEP_PX2),
+      allowedSizes.length - 1
+    );
+    setButtonSize(allowedSizes[nextIndex] ?? currentSize);
+  };
+  const finishResize = (e) => {
+    if (!resizing) return;
+    resizeStartRef.current = null;
+    setResizing(false);
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+  const showControls = workspaceMode && (controlsOpen || resizing);
+  return /* @__PURE__ */ jsxRuntime.jsx(
+    "div",
+    {
+      className: "workspace-hover-zone relative w-fit",
+      onMouseEnter: openControls,
+      onMouseLeave: scheduleCloseControls,
+      children: /* @__PURE__ */ jsxRuntime.jsxs("div", { ref: rootRef, className: "workspace-panel relative w-fit", children: [
+        /* @__PURE__ */ jsxRuntime.jsx(Button, { ...buttonProps, size: currentSize, children }),
+        showControls && /* @__PURE__ */ jsxRuntime.jsx("div", { className: "workspace-controls pointer-events-auto absolute left-1 top-1 z-30", children: /* @__PURE__ */ jsxRuntime.jsx(
+          ButtonSizeToolbar,
+          {
+            size: currentSize,
+            options: allowedSizes,
+            onChange: setButtonSize
+          }
+        ) }),
+        workspaceMode && /* @__PURE__ */ jsxRuntime.jsx(
           "div",
           {
-            ref: hitAreaRef,
-            role: "slider",
-            "aria-valuemin": min,
-            "aria-valuemax": max,
-            "aria-valuenow": value,
-            "aria-label": label,
-            tabIndex: 0,
-            className: `prismatic-corners absolute inset-0 z-10 touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-[var(--prismatic-border-subtle)] ${isToggle ? "cursor-pointer" : "cursor-ew-resize"}`,
-            onPointerDown,
-            onPointerMove,
-            onPointerUp,
-            onPointerCancel: onPointerUp,
-            onKeyDown: (e) => {
-              if (isToggle) {
-                if (e.key !== " " && e.key !== "Enter") return;
-                e.preventDefault();
-                onChange(value >= 0.5 ? 0 : 1);
-                return;
-              }
-              if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-              e.preventDefault();
-              const dir = e.key === "ArrowRight" ? 1 : -1;
-              const delta = step * dir * (e.shiftKey ? 10 : 1);
-              const next = clamp(snapToStep(value + delta, min, step), min, max);
-              if (next !== value) onChange(next);
-            }
+            className: [
+              "workspace-controls absolute -right-1.5 -bottom-1.5 z-10 size-4 cursor-ew-resize transition-opacity duration-150",
+              showControls ? "opacity-100" : "opacity-0"
+            ].join(" "),
+            onPointerDown: onResizePointerDown,
+            onPointerMove: onResizePointerMove,
+            onPointerUp: finishResize,
+            onPointerCancel: finishResize,
+            "aria-label": "Resize button",
+            children: /* @__PURE__ */ jsxRuntime.jsx("div", { className: "absolute right-0.5 bottom-0.5 size-2 rounded-sm border-r border-b border-[var(--prismatic-accent-stroke)] opacity-70" })
           }
         ),
-        /* @__PURE__ */ jsxRuntime.jsxs(
-          "div",
-          {
-            className: "relative z-0 flex shrink-0 flex-col gap-1 transition-[height] duration-300 ease-out",
-            style: { height: stackHeight, minHeight: stackHeight, maxHeight: stackHeight },
-            children: [
-              /* @__PURE__ */ jsxRuntime.jsxs(
-                "div",
-                {
-                  className: "flex shrink-0 items-center pr-[18px] transition-[height] duration-300 ease-out",
-                  style: topRowHeightStyle,
-                  children: [
-                    /* @__PURE__ */ jsxRuntime.jsxs(
-                      "div",
-                      {
-                        ref: trackAreaRef,
-                        className: "relative flex min-h-0 flex-1 items-stretch",
-                        style: topRowHeightStyle,
-                        children: [
-                          /* @__PURE__ */ jsxRuntime.jsx(
-                            "div",
-                            {
-                              className: `prismatic-corners-inner pointer-events-none absolute inset-y-0 left-0 ${showRange ? "bg-transparent" : "prismatic-bg-surface-muted"}`,
-                              style: {
-                                width: pillWidthStyle.width,
-                                minWidth: pillWidthStyle.minWidth
-                              },
-                              "aria-hidden": true,
-                              children: /* @__PURE__ */ jsxRuntime.jsx(
-                                "div",
-                                {
-                                  className: `absolute inset-y-0 right-0 z-[2] w-0 transition-opacity duration-300 ease-out ${showHandle ? "opacity-100" : "opacity-0"}`,
-                                  "aria-hidden": true,
-                                  children: lineTopSrc && /* @__PURE__ */ jsxRuntime.jsx("div", { className: "absolute right-0 top-1/2 h-[18px] w-[18px] -translate-y-1/2 translate-x-1/2 rotate-90", children: /* @__PURE__ */ jsxRuntime.jsx(
-                                    "img",
-                                    {
-                                      src: lineTopSrc,
-                                      alt: "",
-                                      className: "block h-full w-full max-w-none",
-                                      draggable: false
-                                    }
-                                  ) })
-                                }
-                              )
-                            }
-                          ),
-                          /* @__PURE__ */ jsxRuntime.jsx("div", { className: "relative z-[1] flex w-full min-w-0 items-center pl-[18px] pr-3", children: /* @__PURE__ */ jsxRuntime.jsx("p", { className: "min-w-0 truncate font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] prismatic-text-primary lowercase", children: label }) })
-                        ]
-                      }
-                    ),
-                    /* @__PURE__ */ jsxRuntime.jsx(
-                      "div",
-                      {
-                        className: "relative z-20 flex shrink-0 items-center pl-2",
-                        style: topRowHeightStyle,
-                        children: editingValue && !isToggle ? /* @__PURE__ */ jsxRuntime.jsx(
-                          "input",
-                          {
-                            ref: valueInputRef,
-                            value: draftValue,
-                            inputMode: "decimal",
-                            className: "w-[120px] bg-transparent text-right font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] prismatic-text-primary tabular-nums outline-none",
-                            onChange: (e) => setDraftValue(e.target.value),
-                            onPointerDown: (e) => e.stopPropagation(),
-                            onClick: (e) => e.stopPropagation(),
-                            onBlur: commitDraftValue,
-                            onKeyDown: (e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                commitDraftValue();
-                              }
-                              if (e.key === "Escape") {
-                                e.preventDefault();
-                                cancelDraftValue();
-                              }
-                            }
-                          }
-                        ) : /* @__PURE__ */ jsxRuntime.jsx(
-                          "button",
-                          {
-                            type: "button",
-                            className: "cursor-text text-right font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] prismatic-text-primary tabular-nums",
-                            onPointerDown: (e) => e.stopPropagation(),
-                            onClick: (e) => {
-                              e.stopPropagation();
-                              if (isToggle) return;
-                              setDraftValue(String(value));
-                              setEditingValue(true);
-                            },
-                            children: shown
-                          }
-                        )
-                      }
-                    )
-                  ]
-                }
-              ),
-              /* @__PURE__ */ jsxRuntime.jsxs(
-                "div",
-                {
-                  className: "flex shrink-0 items-center overflow-hidden pr-[18px] transition-[max-height,opacity] duration-300 ease-out",
-                  style: {
-                    ...bottomRowHeightStyle,
-                    maxHeight: showRange ? ROW_H : 0,
-                    opacity: showRange ? 1 : 0
-                  },
-                  "aria-hidden": !showRange,
-                  children: [
-                    /* @__PURE__ */ jsxRuntime.jsx("div", { className: "flex min-h-0 flex-1 items-stretch", style: bottomRowHeightStyle, children: /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "relative flex min-h-0 flex-1 items-stretch", style: bottomRowHeightStyle, children: [
-                      /* @__PURE__ */ jsxRuntime.jsx(
-                        "div",
-                        {
-                          className: "prismatic-bg-surface-muted prismatic-corners-inner-sm pointer-events-none absolute inset-y-0 left-0 overflow-hidden backdrop-blur-[14.649px]",
-                          style: {
-                            width: pillWidthStyle.width,
-                            minWidth: pillWidthStyle.minWidth
-                          },
-                          "aria-hidden": true,
-                          children: /* @__PURE__ */ jsxRuntime.jsx("div", { className: "absolute right-3 top-1/2 -translate-y-1/2", children: /* @__PURE__ */ jsxRuntime.jsx("div", { className: "flex h-[18.015px] w-0 items-center justify-center", children: /* @__PURE__ */ jsxRuntime.jsx("div", { className: "flex-none rotate-90", children: /* @__PURE__ */ jsxRuntime.jsx("div", { className: "relative h-0 w-[18.015px]", children: lineBottomSrc && /* @__PURE__ */ jsxRuntime.jsx("div", { className: "absolute inset-[-1.72px_0_0_0]", children: /* @__PURE__ */ jsxRuntime.jsx(
-                            "img",
-                            {
-                              src: lineBottomSrc,
-                              alt: "",
-                              className: "block size-full max-w-none",
-                              draggable: false
-                            }
-                          ) }) }) }) }) })
-                        }
-                      ),
-                      /* @__PURE__ */ jsxRuntime.jsx("div", { className: "relative z-[1] flex w-full min-w-0 items-center pl-[18px] pr-3", children: /* @__PURE__ */ jsxRuntime.jsx("p", { className: "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[12px] leading-[1.1] tracking-[-0.24px] prismatic-text-primary tabular-nums lowercase", children: minLabel }) })
-                    ] }) }),
-                    /* @__PURE__ */ jsxRuntime.jsx(
-                      "div",
-                      {
-                        className: "pointer-events-none flex shrink-0 items-center justify-end pl-2",
-                        style: bottomRowHeightStyle,
-                        children: /* @__PURE__ */ jsxRuntime.jsx("p", { className: "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[12px] leading-[1.1] tracking-[-0.24px] prismatic-text-primary tabular-nums lowercase", children: maxLabel })
-                      }
-                    )
-                  ]
-                }
-              )
-            ]
-          }
-        )
-      ]
+        workspaceMode && resizing && /* @__PURE__ */ jsxRuntime.jsx("div", { className: "workspace-controls prismatic-bg-overlay prismatic-text-primary pointer-events-none absolute bottom-1 left-1/2 z-30 -translate-x-1/2 rounded-full px-2 py-0.5 text-[10px] lowercase backdrop-blur-sm", children: SIZE_LABELS[currentSize] })
+      ] })
     }
   );
 }
@@ -4027,6 +4525,7 @@ function RadioRow({ label, isActive, onClick }) {
     "button",
     {
       type: "button",
+      "data-prismatic-interactive": "",
       onClick,
       style: {
         minWidth: isActive ? EXPANDED_W : void 0
@@ -4076,6 +4575,7 @@ function ImageComponent({
 }) {
   const inputId = react.useId();
   const inputRef = react.useRef(null);
+  const interactionEnabled = usePrismaticInteraction();
   const [isActive, setIsActive] = react.useState(false);
   const panelSide = useImagePanelSize();
   const resolvedSize = panelSide ?? size;
@@ -4083,6 +4583,10 @@ function ImageComponent({
     throw new Error("ImageComponent requires `size` or an ImagePanel parent");
   }
   const metrics = imageComponentMetrics(resolvedSize);
+  const showActive = interactionEnabled && isActive;
+  react.useEffect(() => {
+    if (!interactionEnabled) setIsActive(false);
+  }, [interactionEnabled]);
   const shortName = fileName.length > 42 ? `${fileName.slice(0, 39)}\u2026` : fileName;
   const openPicker = () => inputRef.current?.click();
   const onKeyDown = (e) => {
@@ -4094,6 +4598,7 @@ function ImageComponent({
   return /* @__PURE__ */ jsxRuntime.jsxs(
     "div",
     {
+      "data-prismatic-interactive": "",
       className: "group relative shrink-0 cursor-pointer rounded-[500px] outline-none [corner-shape:round]",
       style: { width: resolvedSize, height: resolvedSize },
       role: "button",
@@ -4101,16 +4606,16 @@ function ImageComponent({
       "aria-label": "Replace source image or video",
       onClick: openPicker,
       onKeyDown,
-      onMouseEnter: () => setIsActive(true),
+      onMouseEnter: () => interactionEnabled && setIsActive(true),
       onMouseLeave: () => setIsActive(false),
-      onFocus: () => setIsActive(true),
+      onFocus: () => interactionEnabled && setIsActive(true),
       onBlur: () => setIsActive(false),
       children: [
         /* @__PURE__ */ jsxRuntime.jsx(
           "div",
           {
             className: "absolute inset-0 overflow-hidden rounded-full transition-[filter] duration-200 [corner-shape:round]",
-            style: { filter: `blur(${isActive ? 0 : metrics.blur}px)` },
+            style: { filter: `blur(${showActive ? 0 : metrics.blur}px)` },
             children: kind === "video" ? /* @__PURE__ */ jsxRuntime.jsx(
               "video",
               {
@@ -4175,7 +4680,7 @@ function ImageComponent({
               /* @__PURE__ */ jsxRuntime.jsx(
                 ButtonEllipseVisual,
                 {
-                  active: isActive,
+                  active: showActive,
                   width: metrics.metaWidth,
                   height: metrics.replaceHeight,
                   children: "replace"
@@ -4377,9 +4882,14 @@ exports.AppTitle = AppTitle;
 exports.AppTitlePanel = AppTitlePanel;
 exports.BUTTON_ELLIPSE_HEIGHT = BUTTON_ELLIPSE_HEIGHT;
 exports.BUTTON_ELLIPSE_WIDTH = BUTTON_ELLIPSE_WIDTH;
+exports.BUTTON_HEIGHT_MEDIUM = BUTTON_HEIGHT_MEDIUM;
 exports.BUTTON_TEXT_LG = BUTTON_TEXT_LG;
+exports.BUTTON_TEXT_MD = BUTTON_TEXT_MD;
+exports.BUTTON_TEXT_SM = BUTTON_TEXT_SM;
+exports.BUTTON_WIDTH_MIN = BUTTON_WIDTH_MIN;
 exports.Button = Button;
 exports.ButtonEllipseVisual = ButtonEllipseVisual;
+exports.ButtonPanel = ButtonPanel;
 exports.CANVAS_RESOLUTION_SCALES = CANVAS_RESOLUTION_SCALES;
 exports.CanvasResolutionControl = CanvasResolutionControl;
 exports.CreativeCanvas = CreativeCanvas;
@@ -4397,6 +4907,7 @@ exports.IMAGE_PREVIEW_MODULES = IMAGE_PREVIEW_MODULES;
 exports.ImageComponent = ImageComponent;
 exports.ImagePanel = ImagePanel;
 exports.LAYOUT_GAP = LAYOUT_GAP;
+exports.LayoutModeChrome = LayoutModeChrome;
 exports.MODULE = MODULE;
 exports.PRISMATIC_BLEND_MODES = PRISMATIC_BLEND_MODES;
 exports.PRISMATIC_COLOR_MODES = PRISMATIC_COLOR_MODES;
@@ -4412,12 +4923,14 @@ exports.PRISMATIC_THEME_PRESETS = PRISMATIC_THEME_PRESETS;
 exports.PrismaticProvider = PrismaticProvider;
 exports.Radio = Radio;
 exports.SLIDER_COUNT = SLIDER_COUNT;
+exports.SLIDER_OUTER_HEIGHT = SLIDER_OUTER_HEIGHT;
 exports.Slider = Slider;
 exports.SlidersPanel = SlidersPanel;
 exports.WorkspaceDebugOverlay = WorkspaceDebugOverlay;
 exports.WorkspaceGroup = WorkspaceGroup;
 exports.WorkspacePanel = WorkspacePanel;
 exports.WorkspaceShell = WorkspaceShell;
+exports.buttonSizeFromPanelSize = buttonSizeFromPanelSize;
 exports.chunkIntoColumns = chunkIntoColumns;
 exports.clampCanvasResolutionScale = clampCanvasResolutionScale;
 exports.clampImageModules = clampImageModules;
@@ -4428,15 +4941,19 @@ exports.collectSnapTargets = collectSnapTargets;
 exports.collectWorkspaceSnapLines = collectWorkspaceSnapLines;
 exports.columnCountFromWidth = columnCountFromWidth;
 exports.createGridLayout = createGridLayout;
+exports.createLayoutSnapshot = createLayoutSnapshot;
 exports.createPrismaticStore = createPrismaticStore;
+exports.derivePanelSettingsFromSnapshot = derivePanelSettingsFromSnapshot;
 exports.deriveThemeFromPalette = deriveThemeFromPalette;
 exports.findAutoPlacedPosition = findAutoPlacedPosition;
 exports.findShortcutsPosition = findShortcutsPosition;
 exports.formatCanvasResolutionScale = formatCanvasResolutionScale;
+exports.formatLayoutModule = formatLayoutModule;
 exports.formatPrismaticThemeCss = formatPrismaticThemeCss;
 exports.getActiveCanvasSnapLines = getActiveCanvasSnapLines;
 exports.getActiveDistributionGuides = getActiveDistributionGuides;
 exports.getActiveVisualSnapLines = getActiveVisualSnapLines;
+exports.getButtonMetrics = getButtonMetrics;
 exports.getCanvasScreenRect = getCanvasScreenRect;
 exports.getCanvasSnapTargetIds = getCanvasSnapTargetIds;
 exports.getRuntimePalette = getRuntimePalette;
@@ -4448,10 +4965,12 @@ exports.imageComponentMetrics = imageComponentMetrics;
 exports.imageModulesFromSize = imageModulesFromSize;
 exports.imagePanelSize = imagePanelSize;
 exports.imagePreviewSizePx = imagePreviewSizePx;
+exports.isLayoutMode = isLayoutMode;
 exports.isSnapParticipant = isSnapParticipant;
 exports.isSnappedToTopMargin = isSnappedToTopMargin;
 exports.isUiPositionClear = isUiPositionClear;
 exports.layoutGap = layoutGap;
+exports.layoutSnapshotToStoreInit = layoutSnapshotToStoreInit;
 exports.mergePanelSizes = mergePanelSizes;
 exports.moduleSize = moduleSize;
 exports.moduleSpanPx = moduleSpanPx;
@@ -4469,8 +4988,11 @@ exports.snapCanvasPan = snapCanvasPan;
 exports.snapPosition = snapPosition;
 exports.snapScalar = snapScalar;
 exports.snapThreshold = snapThreshold;
+exports.titleSizeFromPanelSize = titleSizeFromPanelSize;
 exports.useImagePanelSize = useImagePanelSize;
+exports.useLayoutPersistence = useLayoutPersistence;
 exports.usePanelPosition = usePanelPosition;
+exports.usePrismaticInteraction = usePrismaticInteraction;
 exports.usePrismaticStore = usePrismaticStore;
 exports.useWorkspaceGroup = useWorkspaceGroup;
 exports.useWorkspaceMode = useWorkspaceMode;

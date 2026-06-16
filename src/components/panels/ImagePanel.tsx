@@ -102,9 +102,11 @@ type ImagePanelProps = {
 export function ImagePanel({ children, panelId = "image" }: ImagePanelProps) {
   const useStore = usePrismaticStore()
   const workspaceMode = useStore((s) => s.workspaceMode)
-  const imageModules = useStore((s) => s.imagePreviewModules)
+  const globalImageModules = useStore((s) => s.imagePreviewModules)
   const setImagePreviewModules = useStore((s) => s.setImagePreviewModules)
   const setUiGroupSize = useStore((s) => s.setUiGroupSize)
+  const setPanelSetting = useStore((s) => s.setPanelSetting)
+  const panelImageModules = useStore((s) => s.panelSettings[panelId]?.imageModules)
 
   const workspacePanel = useWorkspacePanel()
   const resizeStartRef = useRef<{ x: number; size: number } | null>(null)
@@ -112,7 +114,13 @@ export function ImagePanel({ children, panelId = "image" }: ImagePanelProps) {
   const [resizing, setResizing] = useState(false)
   const [controlsOpen, setControlsOpen] = useState(false)
 
+  const imageModules = panelImageModules ?? globalImageModules
   const panelSize = imagePanelSize(imageModules)
+
+  const setImageModules = (modules: number) => {
+    setImagePreviewModules(modules)
+    setPanelSetting(panelId, { imageModules: modules })
+  }
 
   useEffect(() => {
     setUiGroupSize(panelId, panelSize)
@@ -155,6 +163,13 @@ export function ImagePanel({ children, panelId = "image" }: ImagePanelProps) {
     if (workspaceMode && panelHovered) openControls()
   }, [panelHovered, workspaceMode])
 
+  useEffect(() => {
+    if (workspaceMode && !panelHovered && !resizing) {
+      clearHideTimer()
+      setControlsOpen(false)
+    }
+  }, [workspaceMode, panelHovered, resizing])
+
   const onResizePointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (!workspaceMode || e.button !== 0) return
     e.preventDefault()
@@ -169,7 +184,7 @@ export function ImagePanel({ children, panelId = "image" }: ImagePanelProps) {
     if (!resizing || !resizeStartRef.current) return
     const delta = e.clientX - resizeStartRef.current.x
     const nextSize = resizeStartRef.current.size + delta
-    setImagePreviewModules(imageModulesFromSize(nextSize))
+    setImageModules(imageModulesFromSize(nextSize))
   }
 
   const finishResize = (e: PointerEvent<HTMLDivElement>) => {
@@ -200,7 +215,7 @@ export function ImagePanel({ children, panelId = "image" }: ImagePanelProps) {
 
         {showControls && (
           <div className="workspace-controls pointer-events-auto absolute left-1 top-1 z-30">
-            <ImageSizeToolbar modules={imageModules} onChange={setImagePreviewModules} />
+            <ImageSizeToolbar modules={imageModules} onChange={setImageModules} />
           </div>
         )}
 

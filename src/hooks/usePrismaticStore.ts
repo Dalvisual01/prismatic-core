@@ -16,6 +16,12 @@ export function useWorkspaceMode() {
   return useStore((s) => s.workspaceMode)
 }
 
+/** False in workspace mode — use to skip hover/focus/active UI on draggable panels. */
+export function usePrismaticInteraction() {
+  const workspaceMode = useWorkspaceMode()
+  return !workspaceMode
+}
+
 export function usePanelPosition(id: string) {
   const useStore = usePrismaticStore()
   return useStore((s) => s.uiPositions[id])

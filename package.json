@@ -1,6 +1,6 @@
 {
   "name": "@prismatic/core",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Creative coding framework — workspace UI, canvas shell, and controls for generative graphics tools",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -12,7 +12,12 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
-    "./style.css": "./dist/style.css"
+    "./style.css": "./dist/style.css",
+    "./vite/layout": {
+      "types": "./dist/vite/prismaticLayoutPlugin.d.ts",
+      "import": "./dist/vite/prismaticLayoutPlugin.js",
+      "require": "./dist/vite/prismaticLayoutPlugin.cjs"
+    }
   },
   "files": [
     "dist",
@@ -24,6 +29,7 @@
     "build": "tsup && cp src/style.css dist/style.css",
     "dev": "tsup --watch",
     "dev:playground": "vite",
+    "layout": "vite --mode layout",
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
@@ -34,6 +40,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.8",
+    "@types/node": "^25.9.3",
     "@types/p5": "^1.7.6",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",

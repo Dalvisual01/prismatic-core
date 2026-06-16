@@ -56,8 +56,29 @@ export {
 export {
   usePanelPosition,
   usePrismaticStore,
+  usePrismaticInteraction,
   useWorkspaceMode,
 } from "./hooks/usePrismaticStore"
+export {
+  buttonSizeFromPanelSize,
+  derivePanelSettingsFromSnapshot,
+  titleSizeFromPanelSize,
+  type PanelLayoutSettings,
+  type PanelSettingsMap,
+} from "./layout/panelSettings"
+export { isLayoutMode } from "./layout/mode"
+export {
+  createLayoutSnapshot,
+  formatLayoutModule,
+  layoutSnapshotToStoreInit,
+  type PrismaticLayoutSnapshot,
+} from "./layout/snapshot"
+export {
+  useLayoutPersistence,
+  type LayoutPersistenceStatus,
+  type UseLayoutPersistenceOptions,
+} from "./layout/useLayoutPersistence"
+export { LayoutModeChrome } from "./layout/LayoutModeChrome"
 
 // Canvas
 export {
@@ -102,9 +123,28 @@ export {
 } from "./components/panels/AppTitlePanel"
 export { ImagePanel, useImagePanelSize } from "./components/panels/ImagePanel"
 export { SlidersPanel } from "./components/panels/SlidersPanel"
+export {
+  ButtonPanel,
+  type ButtonPanelProps,
+} from "./components/panels/ButtonPanel"
 
 // UI primitives
-export { Button, type ButtonProps, ButtonEllipseVisual, type ButtonEllipseVisualProps, BUTTON_TEXT_LG, BUTTON_ELLIPSE_WIDTH, BUTTON_ELLIPSE_HEIGHT } from "./components/ui/Button"
+export {
+  Button,
+  type ButtonProps,
+  type ButtonSize,
+  ButtonEllipseVisual,
+  type ButtonEllipseVisualProps,
+  BUTTON_TEXT_SM,
+  BUTTON_TEXT_MD,
+  BUTTON_TEXT_LG,
+  BUTTON_ELLIPSE_WIDTH,
+  BUTTON_ELLIPSE_HEIGHT,
+  BUTTON_HEIGHT_MEDIUM,
+  BUTTON_WIDTH_MIN,
+  getButtonMetrics,
+} from "./components/ui/Button"
+export { SLIDER_OUTER_HEIGHT } from "./components/ui/Slider"
 export { Slider, type SliderProps } from "./components/ui/Slider"
 export { Radio, type RadioProps } from "./components/ui/Radio"
 export {

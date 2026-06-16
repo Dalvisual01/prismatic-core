@@ -82,6 +82,60 @@ npm run dev:playground
 
 Opens at `http://localhost:5173` with a component picker, live theme controls, and workspace shortcuts (`w`, `r`).
 
+### Layout mode
+
+Use layout mode to drag panels and persist their default positions for dev and production builds:
+
+```bash
+npm run layout
+```
+
+This launches the same app with a layout toolbar at the bottom. Toggle workspace with `w` as usual, arrange panels, then click **save layout** to write positions, sizes, and image/slider layout settings to your app layout module (for example `src/layout.ts`). Import that snapshot in `PrismaticProvider` for normal `npm run dev` and build.
+
+```ts
+import { PRISMATIC_LAYOUT } from "./layout"
+import { isLayoutMode, layoutSnapshotToStoreInit } from "@prismatic/core"
+
+<PrismaticProvider
+  storeInit={layoutSnapshotToStoreInit(PRISMATIC_LAYOUT, {
+    layoutMode: isLayoutMode(),
+  })}
+>
+```
+
+Wire the Vite plugin in layout mode:
+
+```ts
+import path from "node:path"
+import { fileURLToPath } from "node:url"
+import { defineConfig } from "vite"
+import { prismaticLayoutPlugin } from "@prismatic/core/vite/layout"
+
+const rootDir = path.dirname(fileURLToPath(import.meta.url))
+
+export default defineConfig(({ mode }) => ({
+  define: {
+    "import.meta.env.PRISMATIC_LAYOUT_MODE": JSON.stringify(mode === "layout"),
+  },
+  plugins: [
+    // ...your plugins
+    mode === "layout" &&
+      prismaticLayoutPlugin({
+        layoutFile: path.resolve(rootDir, "src/layout.ts"),
+      }),
+  ].filter(Boolean),
+}))
+```
+
+```json
+{
+  "scripts": {
+    "dev": "vite",
+    "layout": "vite --mode layout"
+  }
+}
+```
+
 ## AI implementation guide
 
 Prismatic is intended to be migrated into apps by humans and AI agents. Read
@@ -233,13 +287,32 @@ working resolution is half or quarter.
 | `WorkspaceShell` | Full-screen overlay container + snap debug overlay |
 | `WorkspacePanel` | Draggable, snap-aligned panel wrapper |
 | `ImagePanel` | Resizable image preview (module grid) |
+| `ButtonPanel` | Resizable ellipse button with `S` / `M` / `L` size controls |
 | `SlidersPanel` | Multi-column slider layout |
 | `FloatingHelp` | Auto-placed help icon (excluded from snap) |
 
 ## UI primitives
 
-`Slider`, `Button`, `Radio`, `ImageComponent`, `AppTitle`, `AppTitlePanel` —
+`Slider`, `Button`, `ButtonPanel`, `Radio`, `ImageComponent`, `AppTitle`, `AppTitlePanel` —
 styled controls and identity primitives for generative tool UIs.
+
+`Button` defaults to the large fixed ellipse (`274×120`). Pass `size="medium"` for large
+type at slider height (`70px`) with a minimum width of `274px` that grows to hug longer
+labels, or `size="small"` for small type at slider height with content-hugging width.
+
+Use `ButtonPanel` inside `WorkspacePanel` when the button should be resizable in
+workspace mode. It adds the same hover controls and resize handle pattern as
+`ImagePanel`, with `S` / `M` / `L` size choices.
+
+```tsx
+import { Button, ButtonPanel, WorkspacePanel } from "@prismatic/core"
+
+<Button size="medium" onClick={save}>save</Button>
+
+<WorkspacePanel id="save">
+  <ButtonPanel onClick={save}>save</ButtonPanel>
+</WorkspacePanel>
+```
 
 Use `AppTitle` to show the app name in the workspace or surrounding chrome. The
 small title style is the default; pass `size="large"` only when the title should

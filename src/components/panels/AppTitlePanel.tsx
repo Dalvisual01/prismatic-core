@@ -5,6 +5,7 @@ import {
   type PointerEvent,
 } from "react"
 import { usePrismaticStore } from "../../hooks/usePrismaticStore"
+import { titleSizeFromPanelSize } from "../../layout/panelSettings"
 import {
   AppTitle,
   type AppTitleProps,
@@ -84,13 +85,21 @@ export function AppTitlePanel({
   const useStore = usePrismaticStore()
   const workspaceMode = useStore((s) => s.workspaceMode)
   const setUiGroupSize = useStore((s) => s.setUiGroupSize)
+  const setPanelSetting = useStore((s) => s.setPanelSetting)
   const workspacePanel = useWorkspacePanel()
   const resolvedPanelId = panelId ?? workspacePanel?.id ?? "app-title"
 
   const rootRef = useRef<HTMLDivElement>(null)
   const resizeStartRef = useRef<ResizeStart | null>(null)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [internalSize, setInternalSize] = useState<AppTitleSize>(defaultSize)
+  const [internalSize, setInternalSize] = useState<AppTitleSize>(() => {
+    const state = useStore.getState()
+    return (
+      state.panelSettings[resolvedPanelId]?.titleSize ??
+      titleSizeFromPanelSize(state.uiSizes[resolvedPanelId]) ??
+      defaultSize
+    )
+  })
   const [resizing, setResizing] = useState(false)
   const [controlsOpen, setControlsOpen] = useState(false)
 
@@ -99,6 +108,7 @@ export function AppTitlePanel({
 
   const setTitleSize = (next: AppTitleSize) => {
     if (size === undefined) setInternalSize(next)
+    setPanelSetting(resolvedPanelId, { titleSize: next })
     onSizeChange?.(next)
   }
 
@@ -156,6 +166,13 @@ export function AppTitlePanel({
     if (workspaceMode && panelHovered) openControls()
   }, [panelHovered, workspaceMode])
 
+  useEffect(() => {
+    if (workspaceMode && !panelHovered && !resizing) {
+      clearHideTimer()
+      setControlsOpen(false)
+    }
+  }, [workspaceMode, panelHovered, resizing])
+
   const onResizePointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (!workspaceMode || e.button !== 0) return
     const el = rootRef.current
@@ -205,7 +222,7 @@ export function AppTitlePanel({
         <AppTitle {...titleProps} size={currentSize} />
 
         {showControls && (
-          <div className="workspace-controls pointer-events-auto absolute left-0 -top-9 z-30">
+          <div className="workspace-controls pointer-events-auto absolute left-1 top-1 z-30">
             <TitleSizeToolbar
               size={currentSize}
               options={allowedSizes}
@@ -231,7 +248,7 @@ export function AppTitlePanel({
         )}
 
         {workspaceMode && resizing && (
-          <div className="workspace-controls prismatic-bg-overlay prismatic-text-primary pointer-events-none absolute bottom-[-30px] left-1/2 z-30 -translate-x-1/2 rounded-full px-2 py-0.5 text-[10px] lowercase backdrop-blur-sm">
+          <div className="workspace-controls prismatic-bg-overlay prismatic-text-primary pointer-events-none absolute bottom-1 left-1/2 z-30 -translate-x-1/2 rounded-full px-2 py-0.5 text-[10px] lowercase backdrop-blur-sm">
             {currentSize === "small" ? "S" : "M"}
           </div>
         )}

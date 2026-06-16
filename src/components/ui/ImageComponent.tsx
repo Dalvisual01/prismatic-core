@@ -1,5 +1,6 @@
-import { useId, useRef, useState, type KeyboardEvent } from "react"
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react"
 import type { PreviewKind } from "../../canvas/types"
+import { usePrismaticInteraction } from "../../hooks/usePrismaticStore"
 import { useImagePanelSize } from "../panels/ImagePanel"
 import { imageComponentMetrics } from "../../workspace/imageLayout"
 import { BUTTON_TEXT_LG, ButtonEllipseVisual } from "./Button"
@@ -27,6 +28,7 @@ export function ImageComponent({
 }: ImageComponentProps) {
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
+  const interactionEnabled = usePrismaticInteraction()
   const [isActive, setIsActive] = useState(false)
   const panelSide = useImagePanelSize()
   const resolvedSize = panelSide ?? size
@@ -34,6 +36,11 @@ export function ImageComponent({
     throw new Error("ImageComponent requires `size` or an ImagePanel parent")
   }
   const metrics = imageComponentMetrics(resolvedSize)
+  const showActive = interactionEnabled && isActive
+
+  useEffect(() => {
+    if (!interactionEnabled) setIsActive(false)
+  }, [interactionEnabled])
 
   const shortName =
     fileName.length > 42 ? `${fileName.slice(0, 39)}…` : fileName
@@ -49,6 +56,7 @@ export function ImageComponent({
 
   return (
     <div
+      data-prismatic-interactive=""
       className="group relative shrink-0 cursor-pointer rounded-[500px] outline-none [corner-shape:round]"
       style={{ width: resolvedSize, height: resolvedSize }}
       role="button"
@@ -56,14 +64,14 @@ export function ImageComponent({
       aria-label="Replace source image or video"
       onClick={openPicker}
       onKeyDown={onKeyDown}
-      onMouseEnter={() => setIsActive(true)}
+      onMouseEnter={() => interactionEnabled && setIsActive(true)}
       onMouseLeave={() => setIsActive(false)}
-      onFocus={() => setIsActive(true)}
+      onFocus={() => interactionEnabled && setIsActive(true)}
       onBlur={() => setIsActive(false)}
     >
       <div
         className="absolute inset-0 overflow-hidden rounded-full transition-[filter] duration-200 [corner-shape:round]"
-        style={{ filter: `blur(${isActive ? 0 : metrics.blur}px)` }}
+        style={{ filter: `blur(${showActive ? 0 : metrics.blur}px)` }}
       >
         {kind === "video" ? (
           <video
@@ -115,7 +123,7 @@ export function ImageComponent({
           )}
         </div>
         <ButtonEllipseVisual
-          active={isActive}
+          active={showActive}
           width={metrics.metaWidth}
           height={metrics.replaceHeight}
         >

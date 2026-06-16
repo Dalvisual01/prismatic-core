@@ -11,6 +11,8 @@ import {
   type PrismaticConfig,
 } from "../config"
 import { prismaticThemeToCssProperties } from "../theme/tokens"
+import { LayoutModeChrome } from "../layout/LayoutModeChrome"
+import { isLayoutMode } from "../layout/mode"
 import {
   createPrismaticStore,
   type PrismaticStoreInit,
@@ -31,6 +33,7 @@ export function PrismaticProvider({
   storeInit,
   children,
 }: PrismaticProviderProps) {
+  const layoutMode = storeInit?.layoutMode ?? isLayoutMode()
   const resolvedConfig = useMemo(() => {
     const resolved = resolvePrismaticConfig(config)
     setRuntimeConfig(resolved)
@@ -72,6 +75,7 @@ export function PrismaticProvider({
     <PrismaticStoreContext.Provider value={store}>
       <div className="prismatic-root contents" style={themeStyle}>
         {children}
+        {layoutMode ? <LayoutModeChrome /> : null}
       </div>
     </PrismaticStoreContext.Provider>
   )

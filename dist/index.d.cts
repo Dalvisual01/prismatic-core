@@ -192,6 +192,72 @@ type UiGroupSize = PanelSize;
 /** @deprecated Use PanelRect */
 type UiGroupRect = PanelRect;
 
+type AppTitleSize = "small" | "large";
+declare const APP_TITLE_TEXT_SM = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[13px] leading-[1.1] tracking-[-0.26px] lowercase";
+declare const APP_TITLE_TEXT_LG = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] lowercase";
+type AppTitleProps = {
+    title: ReactNode;
+    subtitle?: ReactNode;
+    size?: AppTitleSize;
+    logo?: ReactNode;
+    logoSrc?: string;
+    logoAlt?: string;
+    className?: string;
+    textClassName?: string;
+    subtitleClassName?: string;
+    textBlockClassName?: string;
+    logoClassName?: string;
+    style?: CSSProperties;
+    logoImgProps?: Omit<ImgHTMLAttributes<HTMLImageElement>, "src" | "alt" | "height">;
+};
+declare function AppTitle({ title, subtitle, size, logo, logoSrc, logoAlt, className, textClassName, subtitleClassName, textBlockClassName, logoClassName, style, logoImgProps, }: AppTitleProps): react.JSX.Element;
+
+type ButtonSize = "small" | "medium" | "large";
+declare const BUTTON_TEXT_SM = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[13px] leading-[1.1] tracking-[-0.26px] lowercase";
+declare const BUTTON_TEXT_MD = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[15px] leading-[1.1] tracking-[-0.3px] lowercase";
+declare const BUTTON_TEXT_LG = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] lowercase";
+declare const BUTTON_ELLIPSE_WIDTH = 274;
+declare const BUTTON_ELLIPSE_HEIGHT = 120;
+/** Medium uses slider height and large-type minimum width. */
+declare const BUTTON_HEIGHT_MEDIUM = 70;
+declare const BUTTON_WIDTH_MIN = 274;
+type ButtonSizeMetrics = {
+    height: number;
+    textClass: string;
+    paddingX: number;
+    width?: number;
+    minWidth?: number;
+};
+declare function getButtonMetrics(size?: ButtonSize): ButtonSizeMetrics;
+type ButtonEllipseVisualProps = {
+    active: boolean;
+    children: ReactNode;
+    size?: ButtonSize;
+    width?: number;
+    height?: number;
+    textClassName?: string;
+    className?: string;
+};
+declare function ButtonEllipseVisual({ active, children, size, width, height, textClassName, className, }: ButtonEllipseVisualProps): react.JSX.Element;
+type ButtonProps = {
+    children: ReactNode;
+    size?: ButtonSize;
+    width?: number;
+    height?: number;
+} & ButtonHTMLAttributes<HTMLButtonElement>;
+declare function Button({ children, size, width, height, className, type, disabled, onMouseEnter, onMouseLeave, onFocus, onBlur, ...rest }: ButtonProps): react.JSX.Element;
+
+type PanelLayoutSettings = {
+    buttonSize?: ButtonSize;
+    titleSize?: AppTitleSize;
+    imageModules?: number;
+    sliderColumns?: number;
+};
+type PanelSettingsMap = Record<PanelId, PanelLayoutSettings>;
+declare function buttonSizeFromPanelSize(size?: PanelSize): ButtonSize | undefined;
+declare function titleSizeFromPanelSize(size?: PanelSize): AppTitleSize | undefined;
+declare function derivePanelSettingsFromSnapshot(sizes: Record<PanelId, PanelSize> | undefined, sliderCountByPanelId?: Record<PanelId, number>): PanelSettingsMap;
+
 type PanelDragDebug$1 = {
     id: PanelId;
     raw: PixelPosition;
@@ -210,6 +276,7 @@ type PrismaticStoreState = {
     workspaceMode: boolean;
     uiPositions: Record<PanelId, PixelPosition>;
     uiSizes: Record<PanelId, PanelSize>;
+    panelSettings: PanelSettingsMap;
     uiDragDebug: PanelDragDebug$1 | null;
     canvasDragDebug: CanvasDragDebug | null;
     snapFlashIds: PanelId[];
@@ -219,6 +286,7 @@ type PrismaticStoreState = {
     toggleWorkspaceMode: () => void;
     setWorkspaceMode: (enabled: boolean) => void;
     setUiGroupSize: (id: PanelId, size: PanelSize) => void;
+    setPanelSetting: (id: PanelId, patch: Partial<PanelLayoutSettings>) => void;
     setUiGroupPosition: (id: PanelId, position: PixelPosition) => void;
     setUiDragDebug: (drag: PanelDragDebug$1 | null) => void;
     setCanvasDragDebug: (drag: CanvasDragDebug | null) => void;
@@ -231,7 +299,10 @@ type PrismaticStoreState = {
 type PrismaticStoreInit = {
     initialPositions?: Record<PanelId, PixelPosition>;
     initialSizes?: Record<PanelId, PanelSize>;
+    panelSettings?: PanelSettingsMap;
     workspaceMode?: boolean;
+    /** Marks layout editing mode for app-level behavior. Does not change workspace defaults. */
+    layoutMode?: boolean;
     sliderColumnCount?: number;
     imagePreviewModules?: number;
     canvasResolutionScale?: CanvasResolutionScale;
@@ -247,11 +318,65 @@ declare function PrismaticProvider({ config, storeInit, children, }: PrismaticPr
 
 declare function usePrismaticStore(): UseBoundStore<StoreApi<PrismaticStoreState>>;
 declare function useWorkspaceMode(): boolean;
+/** False in workspace mode — use to skip hover/focus/active UI on draggable panels. */
+declare function usePrismaticInteraction(): boolean;
 declare function usePanelPosition(id: string): PixelPosition;
 
+declare global {
+    interface ImportMeta {
+        readonly env: ImportMetaEnv;
+    }
+    interface ImportMetaEnv {
+        readonly PRISMATIC_LAYOUT_MODE?: string | boolean;
+    }
+}
+declare function isLayoutMode(): boolean;
+
+type PrismaticLayoutSnapshot = {
+    positions: Record<PanelId, PixelPosition>;
+    sizes?: Record<PanelId, PanelSize>;
+    panelSettings?: PanelSettingsMap;
+    sliderColumnCount?: number;
+    imagePreviewModules?: number;
+};
+declare function createLayoutSnapshot(state: {
+    uiPositions: Record<PanelId, PixelPosition>;
+    uiSizes: Record<PanelId, PanelSize>;
+    panelSettings: PanelSettingsMap;
+    sliderColumnCount: number;
+    imagePreviewModules: number;
+}): PrismaticLayoutSnapshot;
+declare function layoutSnapshotToStoreInit(snapshot: PrismaticLayoutSnapshot, options?: {
+    layoutMode?: boolean;
+}): {
+    initialPositions: Record<string, PixelPosition>;
+    initialSizes: Record<string, PanelSize>;
+    panelSettings: PanelSettingsMap;
+    sliderColumnCount: number | undefined;
+    imagePreviewModules: number | undefined;
+    layoutMode: boolean | undefined;
+};
+declare function formatLayoutModule(snapshot: PrismaticLayoutSnapshot): string;
+
+type LayoutPersistenceStatus = "idle" | "saving" | "saved" | "error";
+type UseLayoutPersistenceOptions = {
+    endpoint?: string;
+};
+declare function useLayoutPersistence(useStore: UseBoundStore<StoreApi<PrismaticStoreState>>, { endpoint }?: UseLayoutPersistenceOptions): {
+    status: LayoutPersistenceStatus;
+    error: string | null;
+    saveLayout: () => Promise<void>;
+};
+
+declare function LayoutModeChrome(): react.JSX.Element;
+
 type PreviewKind = "image" | "video";
+type UpdateImageOptions = {
+    /** Keep full pixel dimensions when applying a captured frame as source. */
+    fullResolution?: boolean;
+};
 type P5WithSketch = p5 & {
-    updateImage?: (img: p5.Image) => void;
+    updateImage?: (img: p5.Image, options?: UpdateImageOptions) => void;
     updateVideo?: (url: string) => void;
     getPrismaticResolutionScale?: () => CanvasResolutionScale;
     getPrismaticCanvasSize?: (logicalWidth: number, logicalHeight: number) => CanvasResolutionSize;
@@ -263,6 +388,9 @@ type SketchFactory = (p: P5WithSketch) => void;
 type CreativeCanvasHandle = {
     loadSource: (url: string, kind: PreviewKind) => void;
     saveCanvas: (filename?: string) => void;
+    exportCanvasDataUrl: () => Promise<string | null>;
+    /** Capture the current render at full resolution and apply it as the source image. */
+    applyFrameAsSource: () => Promise<string | null>;
 };
 type CreativeCanvasProps = {
     createSketch: SketchFactory;
@@ -301,26 +429,6 @@ type FloatingHelpProps = {
 };
 declare function FloatingHelp({ id, fallbackPosition, tooltip, ariaLabel, }: FloatingHelpProps): react.JSX.Element;
 
-type AppTitleSize = "small" | "large";
-declare const APP_TITLE_TEXT_SM = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[13px] leading-[1.1] tracking-[-0.26px] lowercase";
-declare const APP_TITLE_TEXT_LG = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] lowercase";
-type AppTitleProps = {
-    title: ReactNode;
-    subtitle?: ReactNode;
-    size?: AppTitleSize;
-    logo?: ReactNode;
-    logoSrc?: string;
-    logoAlt?: string;
-    className?: string;
-    textClassName?: string;
-    subtitleClassName?: string;
-    textBlockClassName?: string;
-    logoClassName?: string;
-    style?: CSSProperties;
-    logoImgProps?: Omit<ImgHTMLAttributes<HTMLImageElement>, "src" | "alt" | "height">;
-};
-declare function AppTitle({ title, subtitle, size, logo, logoSrc, logoAlt, className, textClassName, subtitleClassName, textBlockClassName, logoClassName, style, logoImgProps, }: AppTitleProps): react.JSX.Element;
-
 type AppTitlePanelProps = AppTitleProps & {
     panelId?: string;
     defaultSize?: AppTitleSize;
@@ -343,23 +451,14 @@ type SlidersPanelProps = {
 };
 declare function SlidersPanel({ children, panelId }: SlidersPanelProps): react.JSX.Element;
 
-declare const BUTTON_TEXT_LG = "font-['PP_Neue_Montreal',system-ui,sans-serif] text-[18px] leading-[1.1] tracking-[-0.36px] lowercase";
-declare const BUTTON_ELLIPSE_WIDTH = 274;
-declare const BUTTON_ELLIPSE_HEIGHT = 120;
-type ButtonEllipseVisualProps = {
-    active: boolean;
-    children: ReactNode;
-    width?: number;
-    height?: number;
-    className?: string;
+type ButtonPanelProps = ButtonProps & {
+    panelId?: string;
+    defaultSize?: ButtonSize;
+    sizeOptions?: readonly ButtonSize[];
+    onSizeChange?: (size: ButtonSize) => void;
+    children?: ReactNode;
 };
-declare function ButtonEllipseVisual({ active, children, width, height, className, }: ButtonEllipseVisualProps): react.JSX.Element;
-type ButtonProps = {
-    children: ReactNode;
-    width?: number;
-    height?: number;
-} & ButtonHTMLAttributes<HTMLButtonElement>;
-declare function Button({ children, width, height, className, type, disabled, onMouseEnter, onMouseLeave, onFocus, onBlur, ...rest }: ButtonProps): react.JSX.Element;
+declare function ButtonPanel({ panelId, size: controlledSize, defaultSize, sizeOptions, onSizeChange, children, ...buttonProps }: ButtonPanelProps): react.JSX.Element;
 
 type SliderProps = {
     label: string;
@@ -374,6 +473,7 @@ type SliderProps = {
     /** URL for the bottom drag handle graphic (optional). */
     lineBottomSrc?: string;
 };
+declare const SLIDER_OUTER_HEIGHT = 70;
 declare function Slider({ label, value, min, max, step, displayValue, onChange, lineTopSrc, lineBottomSrc, }: SliderProps): react.JSX.Element;
 
 type RadioProps = {
@@ -526,4 +626,4 @@ declare function findAutoPlacedPosition(panelId: PanelId, current: PixelPosition
 /** @deprecated Use findAutoPlacedPosition */
 declare const findShortcutsPosition: typeof findAutoPlacedPosition;
 
-export { APP_TITLE_TEXT_LG, APP_TITLE_TEXT_SM, AppTitle, AppTitlePanel, type AppTitlePanelProps, type AppTitleProps, type AppTitleSize, BUTTON_ELLIPSE_HEIGHT, BUTTON_ELLIPSE_WIDTH, BUTTON_TEXT_LG, Button, ButtonEllipseVisual, type ButtonEllipseVisualProps, type ButtonProps, CANVAS_RESOLUTION_SCALES, type CanvasDragDebug, CanvasResolutionControl, type CanvasResolutionControlProps, type CanvasResolutionScale, type CanvasResolutionSize, CreativeCanvas, type CreativeCanvasHandle, type CreativeCanvasProps, DEFAULT_CANVAS_RESOLUTION_SCALE, DEFAULT_IMAGE_MODULES, DEFAULT_PRISMATIC_CONFIG, DEFAULT_PRISMATIC_PALETTE, DEFAULT_PRISMATIC_PALETTE_BLEND_MODES, DEFAULT_PRISMATIC_THEME, DEFAULT_PRISMATIC_THEME_BLEND_MODES, DEFAULT_SLIDER_COLUMNS, type DistributionGuide, FloatingHelp, IMAGE_DESIGN_SIZE, IMAGE_PREVIEW_MODULES, ImageComponent, type ImageComponentProps, ImagePanel, LAYOUT_GAP, MODULE, type P5WithSketch, PRISMATIC_BLEND_MODES, PRISMATIC_COLOR_MODES, PRISMATIC_COLOR_MODE_THEMES, PRISMATIC_CORNERS_CANVAS_FRAME_CLASS, PRISMATIC_CORNERS_CLASS, PRISMATIC_CORNERS_INNER_CLASS, PRISMATIC_CORNERS_INNER_SM_CLASS, PRISMATIC_PALETTE_TOKEN_KEYS, PRISMATIC_PALETTE_TOKEN_LABELS, PRISMATIC_THEME_CSS_VARS, PRISMATIC_THEME_PRESETS, type PanelDragDebug$1 as PanelDragDebug, type PanelId, type PanelLayoutEntry, type PanelRect, type PanelSize, type PixelPosition, type PreviewKind, type PrismaticBlendMode, type PrismaticColorMode, type PrismaticConfig, type PrismaticPalette, type PrismaticPaletteBlendModes, type PrismaticPaletteToken, PrismaticProvider, type PrismaticProviderProps, type PrismaticStoreInit, type PrismaticStoreState, type PrismaticTheme, type PrismaticThemeBlendModes, type PrismaticThemeInput, type PrismaticThemePreset, type PrismaticThemeToken, Radio, type RadioProps, type ResolvedPrismaticConfig, type RgbColor, SLIDER_COUNT, type SketchFactory, Slider, type SliderProps, SlidersPanel, type SnapGuides, type UiGroupId, type UiGroupRect, type UiGroupSize, type Viewport, type VisualSnapGuides, WorkspaceDebugOverlay, WorkspaceGroup, WorkspacePanel, type WorkspacePanelProps, WorkspaceShell, type WorkspaceShellProps, chunkIntoColumns, clampCanvasResolutionScale, clampImageModules, clampSliderColumns, clampToWorkspaceBounds, collectCanvasPanSnapTargets, collectSnapTargets, collectWorkspaceSnapLines, columnCountFromWidth, createGridLayout, createPrismaticStore, deriveThemeFromPalette, findAutoPlacedPosition, findShortcutsPosition, formatCanvasResolutionScale, formatPrismaticThemeCss, getActiveCanvasSnapLines, getActiveDistributionGuides, getActiveVisualSnapLines, getCanvasScreenRect, getCanvasSnapTargetIds, getRuntimePalette, getRuntimeTheme, getRuntimeThemeBlendModes, getSnapTargetIds, getWindowMarginRect, imageComponentMetrics, imageModulesFromSize, imagePanelSize, imagePreviewSizePx, isSnapParticipant, isSnappedToTopMargin, isUiPositionClear, layoutGap, mergePanelSizes, moduleSize, moduleSpanPx, normalizeThemeInput, parseColor, resolveCanvasResolutionSize, resolvePrismaticConfig, resolvePrismaticPalette, resolvePrismaticTheme, samePanelIds, sameUiGroupIds, sliderColumnWidthPx, slidersPanelSize, snapCanvasPan, snapPosition, snapScalar, snapThreshold, useImagePanelSize, usePanelPosition, usePrismaticStore, useWorkspaceGroup, useWorkspaceMode, useWorkspacePanel, windowMargin };
+export { APP_TITLE_TEXT_LG, APP_TITLE_TEXT_SM, AppTitle, AppTitlePanel, type AppTitlePanelProps, type AppTitleProps, type AppTitleSize, BUTTON_ELLIPSE_HEIGHT, BUTTON_ELLIPSE_WIDTH, BUTTON_HEIGHT_MEDIUM, BUTTON_TEXT_LG, BUTTON_TEXT_MD, BUTTON_TEXT_SM, BUTTON_WIDTH_MIN, Button, ButtonEllipseVisual, type ButtonEllipseVisualProps, ButtonPanel, type ButtonPanelProps, type ButtonProps, type ButtonSize, CANVAS_RESOLUTION_SCALES, type CanvasDragDebug, CanvasResolutionControl, type CanvasResolutionControlProps, type CanvasResolutionScale, type CanvasResolutionSize, CreativeCanvas, type CreativeCanvasHandle, type CreativeCanvasProps, DEFAULT_CANVAS_RESOLUTION_SCALE, DEFAULT_IMAGE_MODULES, DEFAULT_PRISMATIC_CONFIG, DEFAULT_PRISMATIC_PALETTE, DEFAULT_PRISMATIC_PALETTE_BLEND_MODES, DEFAULT_PRISMATIC_THEME, DEFAULT_PRISMATIC_THEME_BLEND_MODES, DEFAULT_SLIDER_COLUMNS, type DistributionGuide, FloatingHelp, IMAGE_DESIGN_SIZE, IMAGE_PREVIEW_MODULES, ImageComponent, type ImageComponentProps, ImagePanel, LAYOUT_GAP, LayoutModeChrome, type LayoutPersistenceStatus, MODULE, type P5WithSketch, PRISMATIC_BLEND_MODES, PRISMATIC_COLOR_MODES, PRISMATIC_COLOR_MODE_THEMES, PRISMATIC_CORNERS_CANVAS_FRAME_CLASS, PRISMATIC_CORNERS_CLASS, PRISMATIC_CORNERS_INNER_CLASS, PRISMATIC_CORNERS_INNER_SM_CLASS, PRISMATIC_PALETTE_TOKEN_KEYS, PRISMATIC_PALETTE_TOKEN_LABELS, PRISMATIC_THEME_CSS_VARS, PRISMATIC_THEME_PRESETS, type PanelDragDebug$1 as PanelDragDebug, type PanelId, type PanelLayoutEntry, type PanelLayoutSettings, type PanelRect, type PanelSettingsMap, type PanelSize, type PixelPosition, type PreviewKind, type PrismaticBlendMode, type PrismaticColorMode, type PrismaticConfig, type PrismaticLayoutSnapshot, type PrismaticPalette, type PrismaticPaletteBlendModes, type PrismaticPaletteToken, PrismaticProvider, type PrismaticProviderProps, type PrismaticStoreInit, type PrismaticStoreState, type PrismaticTheme, type PrismaticThemeBlendModes, type PrismaticThemeInput, type PrismaticThemePreset, type PrismaticThemeToken, Radio, type RadioProps, type ResolvedPrismaticConfig, type RgbColor, SLIDER_COUNT, SLIDER_OUTER_HEIGHT, type SketchFactory, Slider, type SliderProps, SlidersPanel, type SnapGuides, type UiGroupId, type UiGroupRect, type UiGroupSize, type UseLayoutPersistenceOptions, type Viewport, type VisualSnapGuides, WorkspaceDebugOverlay, WorkspaceGroup, WorkspacePanel, type WorkspacePanelProps, WorkspaceShell, type WorkspaceShellProps, buttonSizeFromPanelSize, chunkIntoColumns, clampCanvasResolutionScale, clampImageModules, clampSliderColumns, clampToWorkspaceBounds, collectCanvasPanSnapTargets, collectSnapTargets, collectWorkspaceSnapLines, columnCountFromWidth, createGridLayout, createLayoutSnapshot, createPrismaticStore, derivePanelSettingsFromSnapshot, deriveThemeFromPalette, findAutoPlacedPosition, findShortcutsPosition, formatCanvasResolutionScale, formatLayoutModule, formatPrismaticThemeCss, getActiveCanvasSnapLines, getActiveDistributionGuides, getActiveVisualSnapLines, getButtonMetrics, getCanvasScreenRect, getCanvasSnapTargetIds, getRuntimePalette, getRuntimeTheme, getRuntimeThemeBlendModes, getSnapTargetIds, getWindowMarginRect, imageComponentMetrics, imageModulesFromSize, imagePanelSize, imagePreviewSizePx, isLayoutMode, isSnapParticipant, isSnappedToTopMargin, isUiPositionClear, layoutGap, layoutSnapshotToStoreInit, mergePanelSizes, moduleSize, moduleSpanPx, normalizeThemeInput, parseColor, resolveCanvasResolutionSize, resolvePrismaticConfig, resolvePrismaticPalette, resolvePrismaticTheme, samePanelIds, sameUiGroupIds, sliderColumnWidthPx, slidersPanelSize, snapCanvasPan, snapPosition, snapScalar, snapThreshold, titleSizeFromPanelSize, useImagePanelSize, useLayoutPersistence, usePanelPosition, usePrismaticInteraction, usePrismaticStore, useWorkspaceGroup, useWorkspaceMode, useWorkspacePanel, windowMargin };

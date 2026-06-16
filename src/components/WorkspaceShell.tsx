@@ -16,6 +16,7 @@ export function WorkspaceShell({
 
   return (
     <div
+      data-workspace-mode={workspaceMode ? "" : undefined}
       className={`pointer-events-none fixed inset-0 ${workspaceMode ? "z-30" : "z-10"}`}
     >
       {children}

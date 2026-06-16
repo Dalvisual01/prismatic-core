@@ -116,9 +116,25 @@ Use the framework workspace primitives for all movable UI:
 - `SlidersPanel` for slider groups
 - `FloatingHelp` for the help affordance
 
-Panel positions and sizes belong in `PrismaticProvider.storeInit` so the app can
+In workspace mode, interactive panel content must not show hover or focus
+states. Mark draggable panel primitives with `data-prismatic-interactive` and gate
+JS-driven hover/active state with `usePrismaticInteraction()`. Only elements
+with class `workspace-controls` stay clickable.
 define a stable default layout without hardcoding layout behavior into framework
 components.
+
+### Layout mode
+
+Apps should keep a committed layout module (for example `src/layout.ts`) and
+import it into `PrismaticProvider` via `layoutSnapshotToStoreInit()`.
+
+Run `npm run layout` (`vite --mode layout`) to edit that layout visually.
+Workspace behaves the same as normal dev — toggle with `w`, then click
+**save layout** when you are ready. The snapshot is written to the layout module
+and used for normal dev and production builds.
+
+Use the `prismaticLayoutPlugin` from `@prismatic/core/vite/layout` and set
+`import.meta.env.PRISMATIC_LAYOUT_MODE` when `mode === "layout"`.
 
 ## Implementation Checklist
 

@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState, type MutableRefObject } from "r
 import {
   AppTitle,
   AppTitlePanel,
-  Button,
+  ButtonPanel,
   CanvasResolutionControl,
   CreativeCanvas,
   FloatingHelp,
@@ -14,11 +14,14 @@ import {
   SlidersPanel,
   WorkspacePanel,
   WorkspaceShell,
+  isLayoutMode,
+  layoutSnapshotToStoreInit,
   usePrismaticStore,
   type CreativeCanvasHandle,
 } from "../src/index"
 import { createPlaygroundSketch } from "./sketch"
 import { ThemeControls } from "./ThemeControls"
+import { PRISMATIC_LAYOUT } from "./layout"
 import type { PrismaticColorMode } from "../src/theme/tokens"
 
 const PLACEHOLDER_IMAGE =
@@ -87,14 +90,6 @@ const COMPONENT_CATALOG: { kind: ComponentKind; label: string; description: stri
   { kind: "resolution", label: "Resolution", description: "Canvas work scale" },
 ]
 
-const INITIAL_POSITIONS: Record<string, { x: number; y: number }> = {
-  "demo-title": { x: 24, y: 24 },
-  "demo-button": { x: 360, y: 120 },
-  "demo-slider": { x: 360, y: 300 },
-  "demo-image": { x: 360, y: 420 },
-  "demo-resolution": { x: 360, y: 560 },
-}
-
 function ImagePreviewDemo({
   imageSrc,
   onImageReplace,
@@ -146,7 +141,11 @@ function PlaygroundPanelContent({
         />
       )
     case "button":
-      return <Button onClick={onSaveCanvas}>save</Button>
+      return (
+        <ButtonPanel panelId={panelId} onClick={onSaveCanvas}>
+          save
+        </ButtonPanel>
+      )
     case "slider":
       return (
         <SlidersPanel panelId={panelId}>
@@ -186,9 +185,10 @@ export function App() {
   const [colorMode, setColorMode] = useState<PrismaticColorMode>("default")
   const [imageSrc, setImageSrc] = useState(PLACEHOLDER_IMAGE)
   const storeInit = useMemo(
-    () => ({
-      initialPositions: INITIAL_POSITIONS,
-    }),
+    () =>
+      layoutSnapshotToStoreInit(PRISMATIC_LAYOUT, {
+        layoutMode: isLayoutMode(),
+      }),
     [],
   )
   const config = useMemo(

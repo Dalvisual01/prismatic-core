@@ -15,6 +15,7 @@ import {
   slidersPanelSize,
 } from "../workspace/slidersLayout"
 import type { PanelId, PanelRect, PanelSize, PixelPosition } from "../workspace/types"
+import type { PanelLayoutSettings, PanelSettingsMap } from "../layout/panelSettings"
 
 const SNAP_FLASH_MS = 100
 let snapFlashTimer: ReturnType<typeof setTimeout> | null = null
@@ -42,6 +43,7 @@ export type PrismaticStoreState = {
   workspaceMode: boolean
   uiPositions: Record<PanelId, PixelPosition>
   uiSizes: Record<PanelId, PanelSize>
+  panelSettings: PanelSettingsMap
   uiDragDebug: PanelDragDebug | null
   canvasDragDebug: CanvasDragDebug | null
   snapFlashIds: PanelId[]
@@ -51,6 +53,7 @@ export type PrismaticStoreState = {
   toggleWorkspaceMode: () => void
   setWorkspaceMode: (enabled: boolean) => void
   setUiGroupSize: (id: PanelId, size: PanelSize) => void
+  setPanelSetting: (id: PanelId, patch: Partial<PanelLayoutSettings>) => void
   setUiGroupPosition: (id: PanelId, position: PixelPosition) => void
   setUiDragDebug: (drag: PanelDragDebug | null) => void
   setCanvasDragDebug: (drag: CanvasDragDebug | null) => void
@@ -67,7 +70,10 @@ export type PrismaticStoreState = {
 export type PrismaticStoreInit = {
   initialPositions?: Record<PanelId, PixelPosition>
   initialSizes?: Record<PanelId, PanelSize>
+  panelSettings?: PanelSettingsMap
   workspaceMode?: boolean
+  /** Marks layout editing mode for app-level behavior. Does not change workspace defaults. */
+  layoutMode?: boolean
   sliderColumnCount?: number
   imagePreviewModules?: number
   canvasResolutionScale?: CanvasResolutionScale
@@ -80,11 +86,11 @@ export function createPrismaticStore(
   const imageModules = init.imagePreviewModules ?? defaultImageModules()
   const resolutionScale =
     init.canvasResolutionScale ?? DEFAULT_CANVAS_RESOLUTION_SCALE
-
   return create<PrismaticStoreState>((set) => ({
     workspaceMode: init.workspaceMode ?? false,
     uiPositions: init.initialPositions ?? {},
     uiSizes: init.initialSizes ?? {},
+    panelSettings: init.panelSettings ?? {},
     uiDragDebug: null,
     canvasDragDebug: null,
     snapFlashIds: [],
@@ -104,6 +110,13 @@ export function createPrismaticStore(
     setUiGroupSize: (id, size) =>
       set((s) => ({
         uiSizes: { ...s.uiSizes, [id]: size },
+      })),
+    setPanelSetting: (id, patch) =>
+      set((s) => ({
+        panelSettings: {
+          ...s.panelSettings,
+          [id]: { ...s.panelSettings[id], ...patch },
+        },
       })),
     setUiGroupPosition: (id, position) =>
       set((s) => ({

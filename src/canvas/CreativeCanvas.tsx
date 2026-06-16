@@ -27,6 +27,9 @@ import type { P5WithSketch, PreviewKind, SketchFactory } from "./types"
 export type CreativeCanvasHandle = {
   loadSource: (url: string, kind: PreviewKind) => void
   saveCanvas: (filename?: string) => void
+  exportCanvasDataUrl: () => Promise<string | null>
+  /** Capture the current render at full resolution and apply it as the source image. */
+  applyFrameAsSource: () => Promise<string | null>
 }
 
 export type CreativeCanvasProps = {
@@ -70,6 +73,11 @@ const ZOOM_MAX_STEP = 0.042
 const ZOOM_SETTLE_EPS = 0.004
 
 const easeOutQuad = (t: number) => t * (2 - t)
+
+const waitForCanvasFrame = () =>
+  new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+  })
 
 type SourceRef = {
   url: string
@@ -369,6 +377,70 @@ export const CreativeCanvas = forwardRef<CreativeCanvasHandle, CreativeCanvasPro
       }
     }, [workspaceMode])
 
+    const captureCanvasDataUrl = useCallback(async (): Promise<string | null> => {
+      const p = pInstRef.current
+      if (!p) return null
+
+      const canvasEl = containerRef.current?.querySelector("canvas") as
+        | HTMLCanvasElement
+        | undefined
+        | null
+      const exportFullResolution = p.exportPrismaticCanvasDataUrl
+
+      if (exportFullResolution) {
+        try {
+          const dataUrl = await exportFullResolution()
+          if (dataUrl) return dataUrl
+        } catch (error) {
+          console.warn(
+            "Full-resolution canvas export failed, falling back to current canvas:",
+            error,
+          )
+        }
+      }
+
+      if (canvasEl) {
+        try {
+          return canvasEl.toDataURL("image/png")
+        } catch (error) {
+          console.warn("Canvas export failed:", error)
+        }
+      }
+
+      return null
+    }, [])
+
+    const applyFrameAsSource = useCallback(async (): Promise<string | null> => {
+      const p = pInstRef.current
+      if (!p) return null
+
+      const dataUrl = await captureCanvasDataUrl()
+      if (!dataUrl) return null
+
+      sourceRef.current = { url: dataUrl, kind: "image" }
+
+      await new Promise<void>((resolve) => {
+        const token = ++imageLoadTokenRef.current
+        p.loadImage(
+          dataUrl,
+          (img) => {
+            if (token !== imageLoadTokenRef.current) {
+              resolve()
+              return
+            }
+            p.updateImage?.(img, { fullResolution: true })
+            resolve()
+          },
+          () => {
+            console.error("Failed to load captured frame")
+            resolve()
+          },
+        )
+      })
+
+      return dataUrl
+    }, [captureCanvasDataUrl])
+
     useImperativeHandle(ref, () => ({
       loadSource: (url: string, kind: PreviewKind) => {
         const p = pInstRef.current
@@ -384,17 +456,14 @@ export const CreativeCanvas = forwardRef<CreativeCanvasHandle, CreativeCanvasPro
 
         loadImageSource(url)
       },
+      exportCanvasDataUrl: captureCanvasDataUrl,
+      applyFrameAsSource,
       saveCanvas: (filename?: string) => {
         const p = pInstRef.current
         if (!p) return
-        const container = containerRef.current
         const prefix = canvasConfig().downloadFilePrefix
         const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
         const name = filename ?? `${prefix}_${timestamp}`
-        const canvasEl = container?.querySelector("canvas") as
-          | HTMLCanvasElement
-          | undefined
-          | null
         const downloadDataUrl = (dataUrl: string) => {
           const a = document.createElement("a")
           a.href = dataUrl
@@ -403,48 +472,20 @@ export const CreativeCanvas = forwardRef<CreativeCanvasHandle, CreativeCanvasPro
           a.click()
           a.remove()
         }
-        const saveCurrentCanvas = () => {
-          if (canvasEl) {
-            const dataUrl = canvasEl.toDataURL("image/png")
-            downloadDataUrl(dataUrl)
-          } else {
+
+        void captureCanvasDataUrl()
+          .then((dataUrl) => {
+            if (dataUrl) {
+              downloadDataUrl(dataUrl)
+              return
+            }
             p.saveCanvas(name, "png")
-          }
-        }
-
-        if (canvasEl) {
-          const exportFullResolution = p.exportPrismaticCanvasDataUrl
-          if (exportFullResolution) {
-            void exportFullResolution()
-              .then((dataUrl) => {
-                if (!dataUrl) {
-                  saveCurrentCanvas()
-                  return
-                }
-                downloadDataUrl(dataUrl)
-              })
-              .catch((error) => {
-                console.warn(
-                  "Full-resolution canvas export failed, falling back to current canvas:",
-                  error,
-                )
-                saveCurrentCanvas()
-              })
-            return
-          }
-
-          try {
-            saveCurrentCanvas()
-            return
-          } catch (error) {
-            console.warn("Canvas download failed, falling back to p5:", error)
-          }
-          p.saveCanvas(canvasEl, name, "png")
-        } else {
-          p.saveCanvas(name, "png")
-        }
+          })
+          .catch(() => {
+            p.saveCanvas(name, "png")
+          })
       },
-    }))
+    }), [applyFrameAsSource, captureCanvasDataUrl, loadImageSource])
 
     useEffect(() => {
       const el = containerRef.current
@@ -528,7 +569,9 @@ export const CreativeCanvas = forwardRef<CreativeCanvasHandle, CreativeCanvasPro
               await loadImageAtScale(source.url, 1)
             }
 
+            await waitForCanvasFrame()
             p.redraw?.()
+            await waitForCanvasFrame()
             const canvas = canvasP.canvas
             return canvas?.toDataURL("image/png") ?? null
           } finally {
